@@ -1,10 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { status } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -12,6 +15,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [forgot, setForgot] = useState(false)
   const [sent, setSent] = useState(false)
+
+  // Déjà connecté → retour à la page protégée
+  if (status === 'authenticated') {
+    return <Navigate to="/" replace />
+  }
+
+  const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +31,7 @@ export default function LoginPage() {
     if (error) {
       setError('Identifiants incorrects. Vérifiez votre email et mot de passe.')
     } else {
-      navigate('/')
+      navigate(from, { replace: true })
     }
     setLoading(false)
   }
