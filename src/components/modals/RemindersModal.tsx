@@ -4,7 +4,9 @@ import { computeStatus } from '@/lib/status'
 import { getEncaisse } from '@/lib/utils'
 import { formatDate } from '@/lib/formatters'
 import { differenceInDays, parseISO } from 'date-fns'
-import { X, AlertTriangle, Clock } from 'lucide-react'
+import { AlertTriangle, Clock } from 'lucide-react'
+import ModalShell from '@/components/ui/ModalShell'
+import { EmptyState } from '@/components/ui/States'
 
 interface Props { onClose: () => void }
 
@@ -32,21 +34,13 @@ export default function RemindersModal({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-md">
-        <div className="modal-header">
-          <AlertTriangle size={16} style={{ color: 'var(--red)' }} />
-          <span className="modal-title">Rappels & Alertes</span>
-          <button className="modal-close" onClick={onClose}><X size={16} /></button>
-        </div>
-
-        <div className="modal-body">
-          {overdue.length === 0 && soon.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 24, color: 'var(--green)' }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-              <div style={{ fontSize: 14 }}>Aucun dossier en retard ou en urgence</div>
-            </div>
-          ) : null}
+    <ModalShell title="Rappels & Alertes" onClose={onClose} size="md" icon={<AlertTriangle size={16} style={{ color: 'var(--red)' }} />}>
+      {overdue.length === 0 && soon.length === 0 ? (
+        <EmptyState
+          title="Tout est à jour"
+          description="Aucun dossier en retard ou en urgence."
+        />
+      ) : null}
 
           {/* Overdue */}
           {overdue.length > 0 && (
@@ -104,12 +98,6 @@ export default function RemindersModal({ onClose }: Props) {
               ))}
             </div>
           )}
-        </div>
-
-        <div className="modal-footer">
-          <button className="btn btn-primary" onClick={onClose}>Fermer</button>
-        </div>
-      </div>
-    </div>
+    </ModalShell>
   )
 }

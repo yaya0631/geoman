@@ -1163,6 +1163,60 @@ tr.row-overdue:hover td { background: rgba(244, 63, 94, 0.14) !important; }
   .right-panel { display: none; }
 }
 
+/* ═══════════════════════════ RESPONSIVE LAYOUT ═══════════════════════════ */
+@media (max-width: 1100px) {
+  .filter-bar { flex-wrap: wrap; height: auto; min-height: var(--filter-h); padding: 6px 10px; }
+  .filter-search { max-width: 200px; min-width: 160px; }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 720px) {
+  html, body, #root { height: 100%; overflow: hidden; }
+
+  /* Navbar : réduire la densité */
+  .navbar { padding: 0 8px; gap: 4px; }
+  .navbar-logo-text { font-size: 14px; }
+  .navbar-logo-sub { display: none; }
+  .navbar .btn span { display: none; }
+  .navbar .status-item span:last-child { display: none; }
+
+  /* Command bar : groupes compactés et scroll horizontal */
+  .command-bar { overflow-x: auto; padding: 0 6px; }
+  .cmd-group { padding: 0 6px; }
+  .command-bar .btn { height: 26px; padding: 0 7px; font-size: 11.5px; }
+
+  /* Filter bar : empiler proprement */
+  .filter-bar { flex-wrap: wrap; height: auto; min-height: var(--filter-h); padding: 6px 8px; row-gap: 6px; }
+  .filter-search { flex: 1 1 100%; max-width: none; }
+  .view-tabs { width: 100%; overflow-x: auto; }
+  .view-tab { flex: 1; padding: 0 6px; }
+
+  /* Table : défilement horizontal intrinsèque */
+  .dossier-table { font-size: 12px; }
+  .dossier-table th, .dossier-table td { padding: 0 6px; }
+
+  /* Status bar : masquer les sous-totaux pour ne garder que l'essentiel */
+  .status-bar { gap: 8px; font-size: 10.5px; padding: 0 8px; }
+  .status-bar .status-item:nth-of-type(n+5) { display: none; }
+
+  /* Modals : passer en plein écran */
+  .modal { width: 100vw; max-height: 100vh; height: 100vh; border-radius: 0; border: none; }
+  .modal-full { width: 100vw; max-height: 100vh; height: 100vh; }
+  .modal-body { padding: 12px; }
+
+  /* Bulk bar : plus compacte */
+  .bulk-bar { bottom: 12px; left: 12px; right: 12px; transform: none; border-radius: 12px; flex-wrap: wrap; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
+  .modal-footer { flex-wrap: wrap; }
+}
+
 /* File upload zone */
 .upload-zone {
   border: 2px dashed var(--border-2);

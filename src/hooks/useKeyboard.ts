@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import { useDossiers } from '@/hooks/useDossiers'
 
 export function useKeyboard() {
   const {
@@ -14,6 +15,7 @@ export function useKeyboard() {
     setUndoAction,
     updateDossier,
   } = useAppStore()
+  const { archiveDossier } = useDossiers()
 
   const performUndo = useCallback(async () => {
     if (!undoAction) return
@@ -57,8 +59,17 @@ export function useKeyboard() {
       if (e.ctrlKey && e.key === 'p') { e.preventDefault(); window.print(); return }
       if (e.ctrlKey && e.key === 'z') { e.preventDefault(); performUndo(); return }
       if (e.ctrlKey && e.key === 'k') { e.preventDefault(); setModalOpen('command-palette'); return }
+      if (e.ctrlKey && e.key === 'a') {
+        // Archiver la sélection (ou le dossier survolé)
+        const ids = [...selectedIds]
+        if (ids.length > 0) {
+          e.preventDefault()
+          ids.forEach(id => archiveDossier.mutate(id))
+          toast.success(`${ids.length} dossier(s) archivé(s)`)
+        }
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedIds, modalOpen, performUndo, resetFilters, setEditingDossierId, setModalOpen])
+  }, [selectedIds, modalOpen, performUndo, resetFilters, setEditingDossierId, setModalOpen, archiveDossier])
 }

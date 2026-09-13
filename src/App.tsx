@@ -1,41 +1,32 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
 import LoginPage from '@/pages/LoginPage'
 import MainPage from '@/pages/MainPage'
-import DashboardPage from '@/pages/DashboardPage'
-import OfficePage from '@/pages/OfficePage'
-import DossierModal from '@/components/modals/DossierModal'
-import '@/office.css'
+import { LoadingState } from '@/components/ui/States'
 
-function OfficeRoute() {
-  const { theme, modalOpen, editingDossierId, setModalOpen, setEditingDossierId } = useAppStore()
+// Charge recharts uniquement quand le dashboard est ouvert (~180 kB économisés sur le bundle initial)
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
+
+function AppRoute() {
+  const { theme } = useAppStore()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
   }, [theme])
 
-  const closeModal = () => {
-    setModalOpen(null)
-    setEditingDossierId(null)
-  }
-
-  return (
-    <>
-      <OfficePage />
-      {(modalOpen === 'new-dossier' || modalOpen === 'edit-dossier') && (
-        <DossierModal onClose={closeModal} editId={modalOpen === 'edit-dossier' ? editingDossierId : null} />
-      )}
-    </>
-  )
+  return <MainPage />
 }
 
 export default function App() {
   return <Routes>
     <Route path="/login" element={<LoginPage />} />
-    <Route path="/" element={<OfficeRoute />} />
-    <Route path="/legacy" element={<MainPage />} />
-    <Route path="/dashboard" element={<DashboardPage />} />
+    <Route path="/" element={<AppRoute />} />
+    <Route path="/dashboard" element={
+      <Suspense fallback={<LoadingState label="Chargement du tableau de bord..." />}>
+        <DashboardPage />
+      </Suspense>
+    } />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 }

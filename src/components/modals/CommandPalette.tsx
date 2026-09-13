@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useAppStore } from '@/store/appStore'
-import { X } from 'lucide-react'
+import ModalShell from '@/components/ui/ModalShell'
 
 interface Props { onClose: () => void }
 
@@ -62,42 +62,47 @@ export default function CommandPalette({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-md" style={{ overflow: 'hidden' }}>
-        <input
-          ref={inputRef}
-          className="cmd-palette-input"
-          placeholder="Rechercher une commande..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={handleKey}
-        />
-        <div className="cmd-palette-list">
-          {filtered.length === 0 ? (
-            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>Aucune commande trouvée</div>
-          ) : filtered.map((cmd, i) => (
-            <div
-              key={cmd.id}
-              className={`cmd-palette-item ${i === activeIdx ? 'active' : ''}`}
-              onClick={() => runCommand(cmd)}
-              onMouseEnter={() => setActiveIdx(i)}
-            >
-              <span style={{ fontSize: 15 }}>{cmd.icon}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{cmd.label}</span>
-              {cmd.shortcut && (
-                <kbd style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', background: 'var(--bg-3)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' }}>
-                  {cmd.shortcut}
-                </kbd>
-              )}
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-dim)', display: 'flex', gap: 16 }}>
+    <ModalShell
+      title="Palette de commandes"
+      onClose={onClose}
+      size="md"
+      footer={
+        <div style={{ display: 'flex', gap: 16, width: '100%' }}>
           <span>↑↓ Naviguer</span>
           <span>↵ Exécuter</span>
           <span>Échap Fermer</span>
         </div>
+      }
+    >
+      <input
+        ref={inputRef}
+        className="cmd-palette-input"
+        placeholder="Rechercher une commande..."
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onKeyDown={handleKey}
+        aria-label="Rechercher une commande"
+      />
+      <div className="cmd-palette-list">
+        {filtered.length === 0 ? (
+          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-dim)' }}>Aucune commande trouvée</div>
+        ) : filtered.map((cmd, i) => (
+          <div
+            key={cmd.id}
+            className={`cmd-palette-item ${i === activeIdx ? 'active' : ''}`}
+            onClick={() => runCommand(cmd)}
+            onMouseEnter={() => setActiveIdx(i)}
+          >
+            <span style={{ fontSize: 15 }}>{cmd.icon}</span>
+            <span style={{ flex: 1, fontSize: 13 }}>{cmd.label}</span>
+            {cmd.shortcut && (
+              <kbd style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--text-dim)', background: 'var(--bg-3)', padding: '1px 5px', borderRadius: 3, border: '1px solid var(--border)' }}>
+                {cmd.shortcut}
+              </kbd>
+            )}
+          </div>
+        ))}
       </div>
-    </div>
+    </ModalShell>
   )
 }

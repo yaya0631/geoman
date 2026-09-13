@@ -1,15 +1,18 @@
+import { useState } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { useDossiers } from '@/hooks/useDossiers'
 import {
   Plus, Pencil, Copy, Archive, Trash2, RotateCcw, Flame,
   CreditCard, Folder, History, Download, Columns, Search, ArchiveRestore
 } from 'lucide-react'
+import ConfirmModal from '@/components/modals/ConfirmModal'
 
 export default function CommandBar() {
   const {
-    selectedIds, setModalOpen, setEditingDossierId, dossiers, filters
+    selectedIds, setModalOpen, setEditingDossierId, dossiers, settings
   } = useAppStore()
   const { trashDossier, archiveDossier, unarchiveDossier, restoreDossier, purgeDossier, duplicateDossier } = useDossiers()
+  const [confirmAction, setConfirmAction] = useState<'trash' | 'purge' | null>(null)
 
   const selArray = [...selectedIds]
   const hasSel = selArray.length > 0
@@ -25,7 +28,17 @@ export default function CommandBar() {
     }
   }
 
-  return (
+  const doTrash = () => {
+    selArray.forEach(id => trashDossier.mutate(id))
+    setConfirmAction(null)
+  }
+
+  const doPurge = () => {
+    selArray.forEach(id => purgeDossier.mutate(id))
+    setConfirmAction(null)
+  }
+
+  return (<>
     <div className="command-bar">
       {/* CRUD group */}
       <div className="cmd-group">
@@ -96,7 +109,7 @@ export default function CommandBar() {
             </button>
             <button
               className="btn btn-danger"
-              onClick={() => singleSel && purgeDossier.mutate(selArray[0])}
+              onClick={() => settings.confirmBeforeDelete ? setConfirmAction('purge') : doPurge()}
               disabled={!singleSel}
               title="Supprimer définitivement"
             >
@@ -122,7 +135,7 @@ export default function CommandBar() {
             </button>
             <button
               className="btn btn-danger"
-              onClick={() => selArray.forEach(id => trashDossier.mutate(id))}
+              onClick={() => settings.confirmBeforeDelete ? setConfirmAction('trash') : doTrash()}
               disabled={!hasSel}
               title="Corbeille (Suppr)"
             >
@@ -163,6 +176,28 @@ export default function CommandBar() {
           <span style={{ color: 'var(--acc)', fontWeight: 600 }}>{selArray.length}</span> sélectionnés
         </div>
       )}
-    </div>
+      </div>
+
+      {confirmAction === 'trash' && (
+        <ConfirmModal
+          title={singleSel ? 'Déplacer en corbeille ?' : 'Confirmer la suppression'}
+          message={`${selArray.length} dossier(s) seront déplacés dans la corbeille. Vous pouvez annuler avec Ctrl+Z.`}
+          confirmLabel="Supprimer"
+          danger
+          onConfirm={doTrash}
+          onClose={() => setConfirmAction(null)}
+        />
+      )}
+      {confirmAction === 'purge' && (
+        <ConfirmModal
+          title="Suppression définitive"
+          message={`${selArray.length} dossier(s) seront supprimés définitivement et de manière irréversible.`}
+          confirmLabel="Supprimer définitivement"
+          danger
+          onConfirm={doPurge}
+          onClose={() => setConfirmAction(null)}
+        />
+      )}
+    </>
   )
 }

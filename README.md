@@ -127,6 +127,29 @@ Ajouter les variables d'environnement dans le dashboard Vercel :
 
 ---
 
+## Sécurité
+
+- Authentification Supabase (email + mot de passe) avec récupération de mot de passe.
+- Row Level Security (RLS) activée sur toutes les tables : seuls les utilisateurs authentifiés accèdent aux données.
+- Accès anonyme désactivé (aucune politique `anon` n'est appliquée en production).
+- Stockage : bucket privé `dossiers`, accès restreint aux utilisateurs authentifiés.
+- Les clés publiques (`anon`) sont les seules exposées au navigateur ; aucune clé secrète ne transite côté client.
+
+## Migrations
+
+Le schéma est géré par migration SQL incrémentale dans le dossier racine :
+
+| Fichier | Contenu |
+|---|---|
+| `supabase-migration.sql` | Schéma initial : dossiers, paiements, fichiers, historique, RLS, stockage, données de démo |
+| `supabase-migration-v3-office.sql` | Extension bureau : clients, tâches, événements, courriers, contacts, journal, paramètres |
+| `supabase-migration-v4-finance-documents.sql` | Documents, devis, factures, règlements |
+| `supabase-migration-v5-hardening.sql` | **Durcissement sécurité** : suppression de l'accès anonyme, restriction du bucket, index, triggers `updated_at` |
+
+> ⚠️ Avant de déployer : exécutez les migrations dans l'ordre sur votre projet Supabase.
+
+---
+
 ## Architecture des fichiers
 
 ```
@@ -138,6 +161,7 @@ src/
 │   ├── modals/          # DossierModal, PaymentModal, FilesModal,
 │   │                    # DashboardModal, RemindersModal, HistoryModal,
 │   │                    # ExportModal, ColumnsModal, SettingsModal, CommandPalette
+│   ├── ui/              # ModalShell (dialog accessible), States (vide/erreur/chargement)
 │   └── ui/              # BulkActionsBar
 ├── hooks/               # useDossiers, useFilters, useKeyboard, useRealtimeSync
 ├── lib/                 # supabase, status, formatters, utils

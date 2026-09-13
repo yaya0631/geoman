@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
 import { computeStatus } from '@/lib/status'
 import { getEncaisse } from '@/lib/utils'
+import { LoadingState, ErrorState } from '@/components/ui/States'
 
 // Layout
 import Navbar from '@/components/layout/Navbar'
@@ -22,7 +23,6 @@ import DossierModal from '@/components/modals/DossierModal'
 import PaymentModal from '@/components/modals/PaymentModal'
 import FilesModal from '@/components/modals/FilesModal'
 import HistoryModal from '@/components/modals/HistoryModal'
-import DashboardModal from '@/components/modals/DashboardModal'
 import RemindersModal from '@/components/modals/RemindersModal'
 import ExportModal from '@/components/modals/ExportModal'
 import ColumnsModal from '@/components/modals/ColumnsModal'
@@ -30,6 +30,9 @@ import SettingsModal from '@/components/modals/SettingsModal'
 import CommandPalette from '@/components/modals/CommandPalette'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import BulkActionsBar from '@/components/ui/BulkActionsBar'
+
+// Recharts est lourd (~250 kB) — chargé uniquement à l'ouverture du dashboard
+const DashboardModal = lazy(() => import('@/components/modals/DashboardModal'))
 
 export default function MainPage() {
   const { modalOpen, setModalOpen, setEditingDossierId, editingDossierId, settings, dossiers } = useAppStore()
@@ -66,11 +69,12 @@ export default function MainPage() {
 
       <div className="main-content">
         {query.isLoading ? (
-          <div className="loading-overlay" style={{ position: 'relative', flex: 1 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div className="spinner" style={{ margin: '0 auto 12px' }} />
-              <div style={{ fontSize: 13, color: 'var(--text-3)' }}>Chargement des dossiers...</div>
-            </div>
+          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <LoadingState label="Chargement des dossiers..." />
+          </div>
+        ) : query.isError ? (
+          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ErrorState message="Impossible de charger les dossiers." onRetry={() => query.refetch()} />
           </div>
         ) : (
           <DossierTable />
@@ -101,7 +105,9 @@ export default function MainPage() {
         <HistoryModal onClose={closeModal} />
       )}
       {modalOpen === 'dashboard' && (
-        <DashboardModal onClose={closeModal} />
+        <Suspense fallback={<LoadingState label="Chargement du tableau de bord..." />}>
+          <DashboardModal onClose={closeModal} />
+        </Suspense>
       )}
       {modalOpen === 'reminders' && (
         <RemindersModal onClose={closeModal} />

@@ -4,6 +4,7 @@ import { useDossiers } from '@/hooks/useDossiers'
 import { X, Download, Upload, FileJson, FileText } from 'lucide-react'
 import Papa from 'papaparse'
 import toast from 'react-hot-toast'
+import ModalShell from '@/components/ui/ModalShell'
 
 interface Props { onClose: () => void }
 
@@ -72,58 +73,45 @@ export default function ExportModal({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-sm">
-        <div className="modal-header">
-          <span className="modal-title">Import / Export</span>
-          <button className="modal-close" onClick={onClose}><X size={16} /></button>
-        </div>
-
-        <div className="modal-body">
-          <div className="section-title">Exporter</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-            <button className="btn" style={{ justifyContent: 'flex-start', height: 40 }} onClick={exportJSON}>
-              <FileJson size={16} style={{ color: 'var(--acc)' }} />
-              <div>
-                <div>Export JSON</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Tous les dossiers avec paiements</div>
-              </div>
-            </button>
-            <button className="btn" style={{ justifyContent: 'flex-start', height: 40 }} onClick={exportCSV}>
-              <FileText size={16} style={{ color: 'var(--green)' }} />
-              <div>
-                <div>Export CSV</div>
-                <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Tableau compatible Excel</div>
-              </div>
-            </button>
+    <ModalShell title="Import / Export" onClose={onClose} size="sm">
+      <div className="section-title">Exporter</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+        <button className="btn" style={{ justifyContent: 'flex-start', height: 40 }} onClick={exportJSON}>
+          <FileJson size={16} style={{ color: 'var(--acc)' }} />
+          <div>
+            <div>Export JSON</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Tous les dossiers avec paiements</div>
           </div>
-
-          <div className="section-title">Importer</div>
-          <div
-            className="upload-zone"
-            onClick={() => fileRef.current?.click()}
-            style={{ padding: '14px', fontSize: 12.5 }}
-          >
-            <Upload size={18} style={{ margin: '0 auto 6px', display: 'block' }} />
-            {importing ? 'Import en cours...' : 'Cliquer pour importer un fichier JSON'}
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json"
-              style={{ display: 'none' }}
-              onChange={handleImport}
-            />
+        </button>
+        <button className="btn" style={{ justifyContent: 'flex-start', height: 40 }} onClick={exportCSV}>
+          <FileText size={16} style={{ color: 'var(--green)' }} />
+          <div>
+            <div>Export CSV</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Tableau compatible Excel</div>
           </div>
-          <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.5 }}>
-            ⚠️ Les dossiers avec des IDs existants seront ignorés pour éviter les doublons.
-          </p>
-        </div>
-
-        <div className="modal-footer">
-          <button className="btn btn-primary" onClick={onClose}>Fermer</button>
-        </div>
+        </button>
       </div>
-    </div>
+
+      <div className="section-title">Importer</div>
+      <div
+        className="upload-zone"
+        onClick={() => fileRef.current?.click()}
+        style={{ padding: '14px', fontSize: 12.5 }}
+      >
+        <Upload size={18} style={{ margin: '0 auto 6px', display: 'block' }} />
+        {importing ? 'Import en cours...' : 'Cliquer pour importer un fichier JSON'}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={handleImport}
+        />
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, lineHeight: 1.5 }}>
+        ⚠️ Les dossiers avec des IDs existants seront ignorés pour éviter les doublons.
+      </p>
+    </ModalShell>
   )
 }
 

@@ -18,7 +18,7 @@ export default function StatusBar() {
 
   return (
     <div className="status-bar">
-      <div className="status-item">
+      <div className="status-item" title="Connexion à la base de données">
         <span className={`conn-dot ${connectionStatus}`} />
         <span className="status-label">
           {connectionStatus === 'connected' ? 'Connecté' : connectionStatus === 'error' ? 'Erreur DB' : '...'}
@@ -27,7 +27,7 @@ export default function StatusBar() {
 
       <span className="status-sep">│</span>
 
-      <div className="status-item">
+      <div className="status-item" title="Dossiers affichés par la vue courante">
         <span className="status-label">Visible:</span>
         <span className="status-value text-mono">{filtered.length}</span>
       </div>
@@ -49,9 +49,13 @@ export default function StatusBar() {
         <span className="status-value text-mono">{counts.corbeille}</span>
       </div>
 
+      {counts.corbeille > 0 && (
+        <span className="status-label" style={{ color: 'var(--red)' }}>⚠️ Corbeille non vide</span>
+      )}
+
       <span className="status-sep">│</span>
 
-      <div className="status-item">
+      <div className="status-item" title="Montants calculés sur les dossiers visibles">
         <span className="status-label">Attendu:</span>
         <span className="status-value status-amount">{formatMontant(financials.totalMontant)}</span>
       </div>
@@ -67,7 +71,7 @@ export default function StatusBar() {
       </div>
 
       <span className="status-sep" style={{ marginLeft: 'auto' }}>│</span>
-      <span className="version-badge">GeoMan v2.0</span>
+      <span className="version-badge">GeoMan</span>
     </div>
   )
 }

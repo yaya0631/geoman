@@ -7,7 +7,7 @@ import { useDossiers } from '@/hooks/useDossiers'
 import { Dossier } from '@/types'
 import { DEPOT_OPTIONS, STATUS_OPTIONS } from '@/lib/status'
 import { generateDossierId } from '@/lib/formatters'
-import { X } from 'lucide-react'
+import ModalShell from '@/components/ui/ModalShell'
 
 const schema = z.object({
   id: z.string().min(1, 'Requis'),
@@ -38,7 +38,7 @@ export default function DossierModal({ onClose, editId }: Props) {
   const isEdit = !!editId
   const existing = editId ? dossiers.find(d => d.id === editId) : null
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       id: isEdit && existing ? existing.id : generateDossierId(dossiers.map(d => d.id)),
@@ -74,14 +74,21 @@ export default function DossierModal({ onClose, editId }: Props) {
   const isPending = createDossier.isPending || updateDossierMutation.isPending
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <form className="modal modal-lg" onSubmit={handleSubmit(onSubmit)}>
-        <div className="modal-header">
-          <span className="modal-title">{isEdit ? `Modifier — ${editId}` : 'Nouveau dossier'}</span>
-          <button type="button" className="modal-close" onClick={onClose}><X size={16} /></button>
-        </div>
-
-        <div className="modal-body">
+    <ModalShell
+      title={isEdit ? `Modifier — ${editId}` : 'Nouveau dossier'}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <>
+          <button type="button" className="btn" onClick={onClose}>Annuler</button>
+          <button type="submit" className="btn btn-primary" disabled={isPending} form="dossier-form">
+            {isPending ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Créer le dossier'}
+          </button>
+        </>
+      }
+    >
+      <form id="dossier-form" onSubmit={handleSubmit(onSubmit)}>
+        <div className="modal-body" style={{ padding: 0 }}>
           {/* Identification */}
           <div className="form-section">
             <div className="form-section-title">Identification</div>
@@ -184,14 +191,7 @@ export default function DossierModal({ onClose, editId }: Props) {
             <textarea className="form-textarea" {...register('observations')} rows={3} placeholder="Notes, remarques..." />
           </div>
         </div>
-
-        <div className="modal-footer">
-          <button type="button" className="btn" onClick={onClose}>Annuler</button>
-          <button type="submit" className="btn btn-primary" disabled={isPending}>
-            {isPending ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Créer le dossier'}
-          </button>
-        </div>
       </form>
-    </div>
+    </ModalShell>
   )
 }
