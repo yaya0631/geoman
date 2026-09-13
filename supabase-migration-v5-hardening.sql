@@ -1,12 +1,18 @@
--- GeoMan v5 — Durcissement de la sécurité (production)
+-- GeoMan v5 — Durcissement de la sécurité (production) — version tolérante
 -- À exécuter dans Supabase SQL Editor.
+--
+-- Cette version est SÛRE à exécuter :
+--   • idempotente (ré-exécutable sans erreur) ;
+--   • tolérante : les instructions concernant des tables qui n'existent pas
+--     (clients, taches, evenements, devis, factures, etc.) sont ignorées,
+--     que la migration v3/v4 ait été exécutée ou non.
 --
 -- Objectifs :
 --   1. Supprimer l'accès anonyme complet (mode démo) sur les tables applicatives.
 --   2. Restreindre les opérations à a minima authenticated.
 --   3. Restreindre le bucket de stockage au seul chemin dossiers/ et aux utilisateurs connectés.
---   4. Ajouter des index manquants (fichiers.storage_path, recherches courantes).
---   5. Homogénéiser le trigger updated_at sur toutes les tables de travail.
+--   4. Ajouter des index manquants.
+--   5. Homogénéiser le trigger updated_at sur toutes les tables de travail existantes.
 
 -- ═══ 1. Suppression des politiques anonymes (le mode démo est off) ═══
 
@@ -19,30 +25,20 @@ DROP POLICY IF EXISTS "anon_storage_insert" ON storage.objects;
 
 -- ═══ 2. RLS : seuls les utilisateurs authentifiés accèdent aux données ═══
 
--- Les politiques "auth_all_*" existantes couvrent déjà l'essentiel.
--- On s'assure qu'aucune politique vide ne laisse passer anon :
-
+-- Tables cœur (créées par la v2) : présentes sur toutes les bases.
 ALTER TABLE dossiers   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE paiements  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fichiers   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE historique ENABLE ROW LEVEL SECURITY;
-ALTER TABLE clients    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE taches     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE evenements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE courriers_modeles   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE courriers_envoyes   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contacts_administrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE journal_bureau      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE parametres_bureau   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE documents_bureau    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE devis      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE factures   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reglements ENABLE ROW LEVEL SECURITY;
 
--- Politiques par défaut pour les tables créées par les migrations v3/v4
--- (créées via "FOR ALL TO authenticated USING(true) WITH CHECK(true)").
--- On les recrée proprement pour être explicite :
+-- Politique v2 sur dossiers (remplacement sûr — idempotent)
+DO $$
+BEGIN
+  EXECUTE format('DROP POLICY IF EXISTS "auth_all_dossiers" ON dossiers');
+  EXECUTE format('CREATE POLICY "auth_all_dossiers" ON dossiers FOR ALL TO authenticated USING (true) WITH CHECK (true)');
+END $$;
 
+-- Tables optionnelles (v3/v4) : activation RLS + politique uniquement si la table existe.
 DO $$
 DECLARE t TEXT;
 BEGIN
@@ -51,8 +47,11 @@ BEGIN
     'contacts_administrations','journal_bureau','parametres_bureau',
     'documents_bureau','devis','factures','reglements'
   ] LOOP
-    EXECUTE format('DROP POLICY IF EXISTS "auth_all_%s" ON %I', t, t);
-    EXECUTE format('CREATE POLICY "auth_all_%s" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t, t);
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+      EXECUTE format('DROP POLICY IF EXISTS "auth_all_%s" ON %I', t, t);
+      EXECUTE format('CREATE POLICY "auth_all_%s" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t, t);
+    END IF;
   END LOOP;
 END $$;
 
@@ -85,7 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_dossiers_date_finale ON dossiers(date_finale);
 CREATE INDEX IF NOT EXISTS idx_dossiers_depot_cad   ON dossiers(depot_cad);
 CREATE INDEX IF NOT EXISTS idx_paiements_date       ON paiements(date DESC);
 
--- ═══ 5. Trigger updated_at unifié ═══
+-- ═══ 5. Trigger updated_at unifié (uniquement sur les tables existantes) ═══
 
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -95,13 +94,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Appliqué sur dossiers (déjà existant dans v2) + tables v3/v4
 DO $$
 DECLARE t TEXT;
 BEGIN
   FOREACH t IN ARRAY ARRAY['clients','taches','courriers_modeles','parametres_bureau','documents_bureau','devis','factures'] LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS set_updated_at ON %I', t);
-    EXECUTE format('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at()', t);
+    IF to_regclass(format('public.%I', t)) IS NOT NULL THEN
+      EXECUTE format('DROP TRIGGER IF EXISTS set_updated_at ON %I', t);
+      EXECUTE format('CREATE TRIGGER set_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at()', t);
+    END IF;
   END LOOP;
 END $$;
 
