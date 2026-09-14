@@ -23,7 +23,7 @@ export function useNotifications() {
   }
 
   useEffect(() => {
-    if (!settings.showRemindersOnStart) return
+    if (!settings.showRemindersOnStart || settings.enableBrowserNotifications === false) return
     if (!('Notification' in window) || Notification.permission !== 'granted') return
 
     const active = dossiers.filter(d => !d.in_trash && !d.archived)
@@ -40,7 +40,7 @@ export function useNotifications() {
         })
       }
     })
-  }, [dossiers, settings.showRemindersOnStart])
+  }, [dossiers, settings.showRemindersOnStart, settings.enableBrowserNotifications])
 
   return { requestPermission }
 }

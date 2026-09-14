@@ -165,6 +165,7 @@ export default function Navbar() {
                     setShowRecents(false)
                     addRecent(d.id)
                     setEditingDossierId(d.id)
+                    setModalOpen('edit-dossier')
                   }}
                 >
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--acc)', fontWeight: 600 }}>{d.id}</span>
