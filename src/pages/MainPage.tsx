@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/appStore'
 import { useDossiers } from '@/hooks/useDossiers'
 import { useKeyboard } from '@/hooks/useKeyboard'
 import { useRealtimeSync } from '@/hooks/useRealtimeSync'
+import { useNotifications } from '@/hooks/useNotifications'
 import { computeStatus } from '@/lib/status'
 import { getEncaisse } from '@/lib/utils'
 import { LoadingState, ErrorState } from '@/components/ui/States'
@@ -13,6 +14,7 @@ import CommandBar from '@/components/layout/CommandBar'
 import FilterBar from '@/components/layout/FilterBar'
 import StatusBar from '@/components/layout/StatusBar'
 import Legend from '@/components/layout/Legend'
+import { TableSkeleton } from '@/components/ui/Skeleton'
 
 // Table & Sidebar
 import DossierTable from '@/components/table/DossierTable'
@@ -41,6 +43,7 @@ export default function MainPage() {
   // Initialize hooks
   useKeyboard()
   useRealtimeSync()
+  useNotifications()
 
   // Show reminders on startup if there are overdue dossiers
   useEffect(() => {
@@ -69,8 +72,8 @@ export default function MainPage() {
 
       <div className="main-content">
         {query.isLoading ? (
-          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <LoadingState label="Chargement des dossiers..." />
+          <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 16 }}>
+            <TableSkeleton rows={10} columns={6} />
           </div>
         ) : query.isError ? (
           <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

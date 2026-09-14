@@ -29,8 +29,8 @@ export default function ContextMenu({ x, y, dossier, onClose }: Props) {
   }, [onClose])
 
   const style: React.CSSProperties = {
-    left: Math.min(x, window.innerWidth - 210),
-    top: Math.min(y, window.innerHeight - 300),
+    left: Math.min(x, window.innerWidth - 220),
+    top: Math.min(y, window.innerHeight - 320),
   }
 
   const openModal = (modal: string) => {
@@ -45,36 +45,51 @@ export default function ContextMenu({ x, y, dossier, onClose }: Props) {
   return (
     <>
       <div className="context-menu" style={style} ref={ref}>
+        <div style={{ padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', borderBottom: '1px solid var(--border)', marginBottom: 2 }}>
+          Dossier {dossier.id}
+        </div>
+
         {!dossier.in_trash && (
           <>
             <div className="ctx-item" onClick={() => openModal('edit-dossier')}>
-              <Pencil size={13} /> Modifier <span className="ctx-shortcut">F2</span>
+              <Pencil size={13} style={{ color: 'var(--acc)' }} />
+              <span>Modifier</span>
+              <span className="ctx-shortcut">F2</span>
             </div>
             <div className="ctx-item" onClick={() => { duplicateDossier.mutate(dossier.id); onClose() }}>
-              <Copy size={13} /> Dupliquer
+              <Copy size={13} />
+              <span>Dupliquer</span>
             </div>
             <div className="ctx-sep" />
             <div className="ctx-item" onClick={() => openModal('paiements')}>
-              <CreditCard size={13} /> Paiements
+              <CreditCard size={13} style={{ color: 'var(--green)' }} />
+              <span>Paiements</span>
             </div>
             <div className="ctx-item" onClick={() => openModal('fichiers')}>
-              <Folder size={13} /> Fichiers
+              <Folder size={13} style={{ color: 'var(--acc)' }} />
+              <span>Fichiers</span>
             </div>
             <div className="ctx-item" onClick={() => openModal('historique')}>
-              <History size={13} /> Historique
+              <History size={13} style={{ color: 'var(--purple)' }} />
+              <span>Historique</span>
             </div>
             <div className="ctx-sep" />
             {dossier.archived ? (
               <div className="ctx-item" onClick={() => { unarchiveDossier.mutate(dossier.id); onClose() }}>
-                <ArchiveRestore size={13} /> Désarchiver
+                <ArchiveRestore size={13} />
+                <span>Désarchiver</span>
               </div>
             ) : (
               <div className="ctx-item" onClick={() => { archiveDossier.mutate(dossier.id); onClose() }}>
-                <Archive size={13} /> Archiver <span className="ctx-shortcut">Ctrl+A</span>
+                <Archive size={13} />
+                <span>Archiver</span>
+                <span className="ctx-shortcut">Ctrl+A</span>
               </div>
             )}
             <div className="ctx-item danger" onClick={() => settings.confirmBeforeDelete ? setConfirm('trash') : doTrash()}>
-              <Trash2 size={13} /> Supprimer <span className="ctx-shortcut">Suppr</span>
+              <Trash2 size={13} />
+              <span>Mettre en corbeille</span>
+              <span className="ctx-shortcut">Suppr</span>
             </div>
           </>
         )}
@@ -82,11 +97,13 @@ export default function ContextMenu({ x, y, dossier, onClose }: Props) {
         {dossier.in_trash && (
           <>
             <div className="ctx-item" onClick={() => { restoreDossier.mutate(dossier.id); onClose() }}>
-              <RotateCcw size={13} /> Restaurer
+              <RotateCcw size={13} style={{ color: 'var(--green)' }} />
+              <span>Restaurer</span>
             </div>
             <div className="ctx-sep" />
             <div className="ctx-item danger" onClick={() => settings.confirmBeforeDelete ? setConfirm('purge') : doPurge()}>
-              <Flame size={13} /> Supprimer définitivement
+              <Flame size={13} />
+              <span>Purger définitivement</span>
             </div>
           </>
         )}

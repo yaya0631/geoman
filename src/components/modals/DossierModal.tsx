@@ -8,14 +8,15 @@ import { Dossier } from '@/types'
 import { DEPOT_OPTIONS, STATUS_OPTIONS } from '@/lib/status'
 import { generateDossierId } from '@/lib/formatters'
 import ModalShell from '@/components/ui/ModalShell'
+import { FileEdit, Plus, User, MapPin, Phone, Calendar, DollarSign, Building, CheckSquare, Sparkles } from 'lucide-react'
 
 const schema = z.object({
-  id: z.string().min(1, 'Requis'),
-  nom: z.string().min(1, 'Nom requis'),
+  id: z.string().min(1, 'N° de dossier requis'),
+  nom: z.string().min(1, 'Nom du client requis'),
   endroit: z.string().optional(),
   telephone: z.string().optional(),
   date_finale: z.string().optional(),
-  montant: z.coerce.number().min(0),
+  montant: z.coerce.number().min(0, 'Le montant ne peut pas être négatif'),
   acte: z.boolean(),
   regul: z.boolean(),
   agricole: z.boolean(),
@@ -75,71 +76,96 @@ export default function DossierModal({ onClose, editId }: Props) {
 
   return (
     <ModalShell
-      title={isEdit ? `Modifier — ${editId}` : 'Nouveau dossier'}
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isEdit ? <FileEdit size={18} style={{ color: 'var(--acc)' }} /> : <Plus size={18} style={{ color: 'var(--green)' }} />}
+          <span>{isEdit ? `Modification du dossier — ${editId}` : 'Nouveau dossier foncier'}</span>
+        </div>
+      }
       onClose={onClose}
       size="lg"
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>Annuler</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Annuler
+          </button>
           <button type="submit" className="btn btn-primary" disabled={isPending} form="dossier-form">
-            {isPending ? 'Enregistrement...' : isEdit ? 'Mettre à jour' : 'Créer le dossier'}
+            {isPending ? 'Enregistrement en cours...' : isEdit ? 'Enregistrer modifications' : 'Créer le dossier'}
           </button>
         </>
       }
     >
       <form id="dossier-form" onSubmit={handleSubmit(onSubmit)}>
-        <div className="modal-body" style={{ padding: 0 }}>
-          {/* Identification */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Identification Section */}
           <div className="form-section">
-            <div className="form-section-title">Identification</div>
+            <div className="form-section-title">
+              <User size={14} />
+              <span>Identification du client & dossier</span>
+            </div>
             <div className="form-grid form-grid-3">
               <div className="form-field">
                 <label className="form-label">N° Dossier *</label>
-                <input className="form-input" {...register('id')} readOnly={isEdit} style={isEdit ? { opacity: 0.6 } : {}} />
+                <input
+                  className={`form-input text-mono ${errors.id ? 'input-invalid' : ''}`}
+                  {...register('id')}
+                  readOnly={isEdit}
+                  style={isEdit ? { opacity: 0.7, background: 'var(--bg-3)' } : {}}
+                />
                 {errors.id && <span className="form-error">{errors.id.message}</span>}
               </div>
               <div className="form-field" style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Nom du client *</label>
-                <input className="form-input" {...register('nom')} placeholder="Prénom NOM" />
+                <label className="form-label">Nom complet du client *</label>
+                <input className={`form-input ${errors.nom ? 'input-invalid' : ''}`} {...register('nom')} placeholder="ex. Karim BENALI" />
                 {errors.nom && <span className="form-error">{errors.nom.message}</span>}
               </div>
             </div>
-            <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
+
+            <div className="form-grid form-grid-2" style={{ marginTop: 12 }}>
               <div className="form-field">
-                <label className="form-label">Endroit / Localité</label>
-                <input className="form-input" {...register('endroit')} placeholder="Commune, commune..." />
+                <label className="form-label">Localité / Commune / Lieudit</label>
+                <div style={{ position: 'relative' }}>
+                  <input className="form-input" {...register('endroit')} placeholder="ex. Alger Centre, Bab El Oued..." />
+                </div>
               </div>
               <div className="form-field">
-                <label className="form-label">Téléphone</label>
-                <input className="form-input" {...register('telephone')} placeholder="05xx xx xx xx" />
+                <label className="form-label">Numéro de téléphone</label>
+                <input className="form-input text-mono" {...register('telephone')} placeholder="05xx xx xx xx" />
               </div>
             </div>
           </div>
 
-          {/* Financial & Deadline */}
-          <div className="form-section" style={{ marginTop: 10 }}>
-            <div className="form-section-title">Financier & Échéances</div>
+          {/* Financial & Deadline Section */}
+          <div className="form-section">
+            <div className="form-section-title">
+              <DollarSign size={14} />
+              <span>Finances & Échéances</span>
+            </div>
             <div className="form-grid form-grid-2">
               <div className="form-field">
-                <label className="form-label">Montant total (DA)</label>
-                <input className="form-input" type="number" {...register('montant')} min={0} />
+                <label className="form-label">Montant total des honoraires (DA)</label>
+                <input className={`form-input text-mono ${errors.montant ? 'input-invalid' : ''}`} type="number" {...register('montant')} min={0} placeholder="0" />
+                {errors.montant && <span className="form-error">{errors.montant.message}</span>}
               </div>
               <div className="form-field">
-                <label className="form-label">Date d'échéance</label>
-                <input className="form-input" type="date" {...register('date_finale')} />
+                <label className="form-label">Date limite / Échéance finale</label>
+                <input className="form-input text-mono" type="date" {...register('date_finale')} />
               </div>
             </div>
           </div>
 
-          {/* Dépôts */}
-          <div className="form-section" style={{ marginTop: 10 }}>
-            <div className="form-section-title">Dépôts cadastraux</div>
+          {/* Dépôts cadastraux */}
+          <div className="form-section">
+            <div className="form-section-title">
+              <Building size={14} />
+              <span>Dépôts cadastre & domaine</span>
+            </div>
             <div className="form-grid form-grid-2">
               <div className="form-field">
-                <label className="form-label">Dépôt CAD</label>
+                <label className="form-label">Dépôt Cadastre (CAD)</label>
                 <select className="form-select" {...register('depot_cad')}>
                   {DEPOT_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt || '— Non défini —'}</option>
+                    <option key={opt} value={opt}>{opt || '— Non déposé / Non défini —'}</option>
                   ))}
                 </select>
               </div>
@@ -147,38 +173,42 @@ export default function DossierModal({ onClose, editId }: Props) {
                 <label className="form-label">Dépôt Domaine</label>
                 <select className="form-select" {...register('depot_domain')}>
                   {DEPOT_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt || '— Non défini —'}</option>
+                    <option key={opt} value={opt}>{opt || '— Non déposé / Non défini —'}</option>
                   ))}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Status & flags */}
-          <div className="form-section" style={{ marginTop: 10 }}>
-            <div className="form-section-title">État & Indicateurs</div>
+          {/* Status & Options */}
+          <div className="form-section">
+            <div className="form-section-title">
+              <CheckSquare size={14} />
+              <span>État & Caractéristiques</span>
+            </div>
             <div className="form-grid form-grid-2">
               <div className="form-field">
-                <label className="form-label">État du dossier</label>
+                <label className="form-label">État d'avancement</label>
                 <select className="form-select" {...register('etat')}>
                   {STATUS_OPTIONS.filter(s => s !== 'Archive').map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               </div>
-              <div className="form-field" style={{ justifyContent: 'flex-end' }}>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="form-field">
+                <label className="form-label">Indicateurs fonciers</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <label className="form-checkbox-row">
                     <input type="checkbox" {...register('acte')} />
-                    Acte établi
+                    <span>Acte établi</span>
                   </label>
                   <label className="form-checkbox-row">
                     <input type="checkbox" {...register('regul')} />
-                    Régularisation
+                    <span>Régularisation</span>
                   </label>
                   <label className="form-checkbox-row">
                     <input type="checkbox" {...register('agricole')} />
-                    Terrain agricole 🌾
+                    <span>Agricole 🌾</span>
                   </label>
                 </div>
               </div>
@@ -186,9 +216,17 @@ export default function DossierModal({ onClose, editId }: Props) {
           </div>
 
           {/* Observations */}
-          <div className="form-section" style={{ marginTop: 10 }}>
-            <div className="form-section-title">Observations</div>
-            <textarea className="form-textarea" {...register('observations')} rows={3} placeholder="Notes, remarques..." />
+          <div className="form-section">
+            <div className="form-section-title">
+              <FileEdit size={14} />
+              <span>Notes et observations internes</span>
+            </div>
+            <textarea
+              className="form-textarea"
+              {...register('observations')}
+              rows={3}
+              placeholder="Instructions géomètre, références cadastrales, remarques particulières..."
+            />
           </div>
         </div>
       </form>

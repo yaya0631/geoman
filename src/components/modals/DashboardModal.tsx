@@ -3,8 +3,9 @@ import { useAppStore } from '@/store/appStore'
 import { getEncaisse, getReste } from '@/lib/utils'
 import { computeStatus } from '@/lib/status'
 import { formatMontant } from '@/lib/formatters'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Layers, CheckCircle2, Lock, AlertTriangle, MapPin, PieChart as PieIcon, Calendar, TrendingUp, Wallet, XCircle } from 'lucide-react'
 import ModalShell from '@/components/ui/ModalShell'
+import { CardSkeleton } from '@/components/ui/Skeleton'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
@@ -14,7 +15,7 @@ import {
 
 interface Props { onClose: () => void }
 
-const COLORS = ['#1d8aff', '#22c55e', '#f43f5e', '#eab308', '#a855f7', '#f97316', '#14b8a6']
+const COLORS = ['#3b82f6', '#10b981', '#f43f5e', '#f59e0b', '#8b5cf6', '#f97316', '#06b6d4']
 
 export default function DashboardModal({ onClose }: Props) {
   const { dossiers } = useAppStore()
@@ -76,96 +77,152 @@ export default function DashboardModal({ onClose }: Props) {
   }, [dossiers])
 
   const kpis = [
-    { label: 'Total dossiers', value: stats.total, cls: 'blue' },
-    { label: 'Actifs', value: stats.actifs, cls: '' },
-    { label: 'Archives', value: stats.archives, cls: '' },
-    { label: 'En retard', value: stats.enRetard, cls: 'red' },
-    { label: 'Terminés', value: stats.termines, cls: 'green' },
-    { label: 'Corbeille', value: stats.corbeille, cls: '' },
+    { label: 'Total dossiers', value: stats.total, color: 'var(--acc)', icon: Layers },
+    { label: 'Dossiers actifs', value: stats.actifs, color: 'var(--text)', icon: CheckCircle2 },
+    { label: 'Archivés', value: stats.archives, color: 'var(--text-3)', icon: Lock },
+    { label: 'En retard', value: stats.enRetard, color: 'var(--red)', icon: AlertTriangle },
+    { label: 'Terminés', value: stats.termines, color: 'var(--green)', icon: CheckCircle2 },
+    { label: 'Corbeille', value: stats.corbeille, color: 'var(--orange)', icon: XCircle },
   ]
 
   const financials = [
-    { label: 'Total attendu', value: formatMontant(stats.totalMontant), cls: 'blue' },
-    { label: 'Total encaissé', value: formatMontant(stats.totalEncaisse), cls: 'green' },
-    { label: 'Reste à payer', value: formatMontant(stats.totalReste), cls: stats.totalReste > 0 ? 'red' : 'green' },
+    { label: 'Total attendu', value: formatMontant(stats.totalMontant), color: 'var(--acc)', icon: Wallet },
+    { label: 'Total encaissé', value: formatMontant(stats.totalEncaisse), color: 'var(--green)', icon: TrendingUp },
+    { label: 'Reste à percevoir', value: formatMontant(stats.totalReste), color: stats.totalReste > 0 ? 'var(--red)' : 'var(--green)', icon: AlertTriangle },
   ]
+
+  const recouvrementRate = stats.totalMontant > 0
+    ? Math.round((stats.totalEncaisse / stats.totalMontant) * 100)
+    : 0
+
+  const tooltipStyle = {
+    contentStyle: { background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 8, fontSize: 12, boxShadow: 'var(--shadow)' },
+    labelStyle: { color: 'var(--text)', fontWeight: 600 },
+  }
 
   return (
     <ModalShell
-      title="Tableau de bord analytique"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BarChart3 size={18} style={{ color: 'var(--acc)' }} />
+          <span>Tableau de bord analytique foncier</span>
+        </div>
+      }
       onClose={onClose}
       size="full"
-      icon={<BarChart3 size={16} style={{ color: 'var(--acc)' }} />}
       footer={<button className="btn btn-primary" onClick={onClose}>Fermer</button>}
     >
-      {/* KPI cards */}
+      {/* Operational KPI cards */}
       <div className="kpi-grid">
-        {kpis.map(k => (
-          <div key={k.label} className="kpi-card">
-            <div className="kpi-label">{k.label}</div>
-            <div className={`kpi-value ${k.cls}`}>{k.value}</div>
-          </div>
-        ))}
+        {kpis.map(k => {
+          const Icon = k.icon
+          return (
+            <div key={k.label} className="kpi-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div className="kpi-label">{k.label}</div>
+                <Icon size={14} style={{ color: k.color, opacity: 0.8 }} />
+              </div>
+              <div className="kpi-value" style={{ color: k.color }}>{k.value}</div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Financial KPIs */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 16 }}>
-        {financials.map(k => (
-          <div key={k.label} className="kpi-card">
-            <div className="kpi-label">{k.label}</div>
-            <div className={`kpi-value ${k.cls}`} style={{ fontSize: 16 }}>{k.value}</div>
-          </div>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+        {financials.map(k => {
+          const Icon = k.icon
+          return (
+            <div key={k.label} className="kpi-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div className="kpi-label">{k.label}</div>
+                <Icon size={14} style={{ color: k.color, opacity: 0.8 }} />
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: k.color, marginTop: 4 }}>
+                {k.value}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Charts */}
+      {/* Recovery rate progress */}
+      <div className="chart-card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div className="chart-title">
+            <TrendingUp size={14} style={{ color: 'var(--green)' }} />
+            <span>Taux de recouvrement global</span>
+          </div>
+          <span style={{
+            fontSize: 18,
+            fontWeight: 800,
+            fontFamily: 'var(--font-mono)',
+            color: recouvrementRate >= 80 ? 'var(--green)' : recouvrementRate >= 50 ? 'var(--yellow)' : 'var(--red)',
+          }}>
+            {recouvrementRate}%
+          </span>
+        </div>
+        <div style={{ height: 10, background: 'var(--bg-3)', borderRadius: 5, overflow: 'hidden' }}>
+          <div style={{
+            width: `${recouvrementRate}%`,
+            height: '100%',
+            background: recouvrementRate >= 80 ? 'var(--green)' : recouvrementRate >= 50 ? 'var(--yellow)' : 'var(--red)',
+            borderRadius: 5,
+            transition: 'width 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+          }} />
+        </div>
+      </div>
+
+      {/* Charts Grid */}
       <div className="charts-grid">
         {/* By location */}
         <div className="chart-card">
-          <div className="chart-title">Dossiers par endroit</div>
-          <ResponsiveContainer width="100%" height={180}>
+          <div className="chart-title">
+            <MapPin size={14} style={{ color: 'var(--acc)' }} />
+            <span>Dossiers par commune / endroit</span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={stats.locationData} margin={{ top: 0, right: 10, bottom: 20, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} angle={-25} textAnchor="end" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} angle={-25} textAnchor="end" height={40} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-              <Tooltip
-                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 6, fontSize: 12 }}
-                labelStyle={{ color: 'var(--text)' }}
-              />
-              <Bar dataKey="value" fill="var(--acc)" radius={[3, 3, 0, 0]} />
+              <Tooltip {...tooltipStyle} />
+              <Bar dataKey="value" fill="var(--acc)" radius={[4, 4, 0, 0]} name="Dossiers" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
         {/* By status */}
         <div className="chart-card">
-          <div className="chart-title">Répartition par état</div>
-          <ResponsiveContainer width="100%" height={180}>
+          <div className="chart-title">
+            <PieIcon size={14} style={{ color: 'var(--purple)' }} />
+            <span>Répartition par état</span>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={stats.statusData} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
+              <Pie data={stats.statusData} cx="50%" cy="50%" innerRadius={40} outerRadius={75} paddingAngle={4} dataKey="value" label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
                 {stats.statusData.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 6, fontSize: 12 }}
-              />
+              <Tooltip {...tooltipStyle} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
         {/* Monthly trend */}
         <div className="chart-card" style={{ gridColumn: 'span 2' }}>
-          <div className="chart-title">Nouveaux dossiers par mois</div>
-          <ResponsiveContainer width="100%" height={140}>
+          <div className="chart-title">
+            <Calendar size={14} style={{ color: 'var(--green)' }} />
+            <span>Nouveaux dossiers par mois</span>
+          </div>
+          <ResponsiveContainer width="100%" height={160}>
             <LineChart data={stats.monthData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
               <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-              <Tooltip
-                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border-2)', borderRadius: 6, fontSize: 12 }}
-              />
-              <Line type="monotone" dataKey="count" stroke="var(--acc)" strokeWidth={2} dot={{ fill: 'var(--acc)' }} />
+              <Tooltip {...tooltipStyle} />
+              <Line type="monotone" dataKey="count" stroke="var(--acc)" strokeWidth={2.5} dot={{ fill: 'var(--acc)', r: 4 }} activeDot={{ r: 6 }} name="Dossiers créés" />
             </LineChart>
           </ResponsiveContainer>
         </div>

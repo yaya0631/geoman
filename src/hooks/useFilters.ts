@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store/appStore'
-import { filterDossiers, sortDossiers, getUniqueLocations } from '@/lib/utils'
+import { filterDossiers, sortDossiers, getUniqueLocations, getEncaisse, getReste } from '@/lib/utils'
+import { computeStatus } from '@/lib/status'
 
 export function useFilters() {
   const dossiers = useAppStore(s => s.dossiers)
@@ -21,10 +22,13 @@ export function useFilters() {
   const locations = useMemo(() => getUniqueLocations(dossiers), [dossiers])
 
   const counts = useMemo(() => {
-    const actifs = dossiers.filter(d => !d.in_trash && !d.archived).length
+    const active = dossiers.filter(d => !d.in_trash && !d.archived)
+    const actifs = active.length
     const archives = dossiers.filter(d => d.archived && !d.in_trash).length
     const corbeille = dossiers.filter(d => d.in_trash).length
-    return { actifs, archives, corbeille, total: dossiers.length }
+    const retards = active.filter(d => computeStatus(d, getEncaisse(d)) === 'En retard').length
+    const impayes = active.filter(d => getReste(d) > 0).length
+    return { actifs, archives, corbeille, retards, impayes, total: dossiers.length }
   }, [dossiers])
 
   return { filtered: sorted, locations, counts }

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, ReactNode, useMemo } from 'react'
 import { useAppStore } from '@/store/appStore'
 import { useFilters } from '@/hooks/useFilters'
 import { useDossiers } from '@/hooks/useDossiers'
@@ -6,10 +6,31 @@ import { Dossier } from '@/types'
 import { computeStatus, getRowColor, getStatusLabel, DEPOT_OPTIONS } from '@/lib/status'
 import { getEncaisse, getReste } from '@/lib/utils'
 import { formatDate, formatMontant } from '@/lib/formatters'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronUp, ChevronDown, Pencil, CreditCard, Folder, Plus, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 import ContextMenu from './ContextMenu'
 
 type ContextMenuState = { x: number; y: number; dossier: Dossier } | null
+
+const PAGE_SIZES = [25, 50, 100, 250]
+
+/**
+ * Met en surbrillance la portion du texte qui correspond à la recherche active.
+ * Utilisé dans les cellules texte du tableau pour un feedback visuel instantané.
+ */
+function Highlight({ text, query }: { text: string; query: string }) {
+  if (!query || !text) return <>{text}</>
+  const lowerText = text.toLowerCase()
+  const lowerQuery = query.toLowerCase()
+  const idx = lowerText.indexOf(lowerQuery)
+  if (idx === -1) return <>{text}</>
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="mark-highlight">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
 
 export default function DossierTable() {
   const {
@@ -18,8 +39,24 @@ export default function DossierTable() {
   } = useAppStore()
   const { filtered } = useFilters()
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
 
   const visibleColumns = columns.filter(c => c.visible)
+
+  // Reset to page 1 when filters/sort change
+  const filterKey = useMemo(
+    () => `${filters.search}|${filters.endroit}|${filters.depotCad}|${filters.viewMode}|${filters.includeArchived}|${sortField}|${sortDir}`,
+    [filters, sortField, sortDir]
+  )
+  useMemo(() => { setPage(1) }, [filterKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pagedRows = useMemo(
+    () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filtered, safePage, pageSize]
+  )
 
   const handleRowClick = useCallback((e: React.MouseEvent, dossier: Dossier, idx: number) => {
     if (e.ctrlKey || e.metaKey) {
@@ -54,10 +91,18 @@ export default function DossierTable() {
     setContextMenu({ x: e.clientX, y: e.clientY, dossier })
   }, [selectedIds])
 
+  const getClientInitials = (name: string) => {
+    if (!name) return '?'
+    const parts = name.trim().split(/\s+/)
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+
   const renderCellContent = (col: typeof visibleColumns[0], dossier: Dossier, idx: number) => {
     const enc = getEncaisse(dossier)
     const reste = getReste(dossier)
     const status = computeStatus(dossier, enc)
+    const pctPaid = dossier.montant > 0 ? Math.min(100, Math.round((enc / dossier.montant) * 100)) : 0
 
     switch (col.key) {
       case 'row':
@@ -65,30 +110,68 @@ export default function DossierTable() {
       case 'id':
         return <span className="cell-id">{dossier.id}</span>
       case 'nom':
-        return <span className="cell-name">{dossier.nom}</span>
+        return (
+          <span className="cell-name">
+            <span
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 4,
+                background: 'var(--bg-3)',
+                color: 'var(--text-2)',
+                fontSize: 10,
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid var(--border)',
+                flexShrink: 0
+              }}
+            >
+              {getClientInitials(dossier.nom)}
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Highlight text={dossier.nom} query={filters.search} />
+            </span>
+          </span>
+        )
       case 'endroit':
-        return <span style={{ color: 'var(--text-2)' }}>{dossier.endroit || '—'}</span>
+        return <span style={{ color: 'var(--text-2)', fontWeight: 500 }}><Highlight text={dossier.endroit || '—'} query={filters.search} /></span>
       case 'date_finale':
         return <span className="cell-mono" style={{ fontSize: 11.5 }}>{formatDate(dossier.date_finale)}</span>
       case 'telephone':
-        return <span className="cell-mono" style={{ fontSize: 11.5, color: 'var(--text-2)' }}>{dossier.telephone || '—'}</span>
+        return <span className="cell-mono" style={{ fontSize: 11.5, color: 'var(--text-2)' }}><Highlight text={dossier.telephone || '—'} query={filters.search} /></span>
       case 'montant':
         if (filters.showRemaining) {
-          return <span className="cell-amount" style={{ color: reste > 0 ? 'var(--red)' : 'var(--green)' }}>{formatMontant(reste)}</span>
+          return (
+            <div>
+              <div className="cell-amount" style={{ color: reste > 0 ? 'var(--red)' : 'var(--green)' }}>
+                {formatMontant(reste)}
+              </div>
+              <div className="table-progress-bar">
+                <div className="table-progress-fill" style={{ width: `${pctPaid}%`, background: pctPaid === 100 ? 'var(--green)' : 'var(--acc)' }} />
+              </div>
+            </div>
+          )
         }
         return (
-          <span className="cell-amount">
-            <span style={{ color: 'var(--green)', fontSize: 11 }}>{formatMontant(enc)}</span>
-            <span style={{ color: 'var(--text-dim)', margin: '0 2px' }}>/</span>
-            {formatMontant(dossier.montant)}
-          </span>
+          <div>
+            <div className="cell-amount">
+              <span style={{ color: 'var(--green)', fontSize: 11 }}>{formatMontant(enc)}</span>
+              <span style={{ color: 'var(--text-dim)', margin: '0 2px' }}>/</span>
+              <span>{formatMontant(dossier.montant)}</span>
+            </div>
+            <div className="table-progress-bar">
+              <div className="table-progress-fill" style={{ width: `${pctPaid}%`, background: pctPaid === 100 ? 'var(--green)' : 'var(--acc)' }} />
+            </div>
+          </div>
         )
       case 'acte':
-        return <span className="cell-bool">{dossier.acte ? '✓' : ''}</span>
+        return <span className="cell-bool" style={{ color: dossier.acte ? 'var(--green)' : 'var(--text-dim)' }}>{dossier.acte ? '✓' : '—'}</span>
       case 'regul':
-        return <span className="cell-bool">{dossier.regul ? '✓' : ''}</span>
+        return <span className="cell-bool" style={{ color: dossier.regul ? 'var(--acc)' : 'var(--text-dim)' }}>{dossier.regul ? '✓' : '—'}</span>
       case 'agricole':
-        return <span className="cell-bool">{dossier.agricole ? '🌾' : ''}</span>
+        return <span className="cell-bool">{dossier.agricole ? '🌾' : '—'}</span>
       case 'depot_cad':
         return renderDepot(dossier.depot_cad)
       case 'depot_domain':
@@ -100,7 +183,9 @@ export default function DossierTable() {
       case 'observations':
         return (
           <span style={{ color: 'var(--text-3)', fontSize: 11.5 }} title={dossier.observations || ''}>
-            {dossier.observations ? dossier.observations.slice(0, 50) + (dossier.observations.length > 50 ? '…' : '') : ''}
+            {dossier.observations ? (
+              <Highlight text={dossier.observations.slice(0, 50) + (dossier.observations.length > 50 ? '…' : '')} query={filters.search} />
+            ) : '—'}
           </span>
         )
       default:
@@ -125,7 +210,7 @@ export default function DossierTable() {
                   {col.label}
                   {isSorted && (
                     <span className="sort-indicator">
-                      {sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                      {sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                     </span>
                   )}
                 </th>
@@ -136,12 +221,24 @@ export default function DossierTable() {
         <tbody>
           {filtered.length === 0 ? (
             <tr>
-              <td colSpan={visibleColumns.length} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-dim)' }}>
-                Aucun dossier trouvé
+              <td colSpan={visibleColumns.length} style={{ textAlign: 'center', padding: '64px 20px', color: 'var(--text-dim)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <Inbox size={32} strokeWidth={1.5} style={{ color: 'var(--text-3)' }} />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-2)' }}>Aucun dossier trouvé</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-3)' }}>Ajustez vos filtres de recherche ou créez un nouveau dossier.</div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: 8 }}
+                    onClick={() => { setEditingDossierId(null); setModalOpen('new-dossier') }}
+                  >
+                    <Plus size={12} /> Nouveau dossier
+                  </button>
+                </div>
               </td>
             </tr>
           ) : (
-            filtered.map((dossier, idx) => {
+            pagedRows.map((dossier, localIdx) => {
+              const idx = (safePage - 1) * pageSize + localIdx
               const enc = getEncaisse(dossier)
               const status = computeStatus(dossier, enc)
               const rowClass = getRowColor(status)
@@ -160,12 +257,92 @@ export default function DossierTable() {
                       {renderCellContent(col, dossier, idx)}
                     </td>
                   ))}
+
+                  {/* Hover Quick Actions */}
+                  <div className="row-quick-actions" onClick={e => e.stopPropagation()}>
+                    <button
+                      className="btn btn-icon btn-sm btn-ghost"
+                      title="Modifier (F2)"
+                      onClick={() => {
+                        setEditingDossierId(dossier.id)
+                        setModalOpen('edit-dossier')
+                      }}
+                    >
+                      <Pencil size={11} />
+                    </button>
+                    <button
+                      className="btn btn-icon btn-sm btn-ghost"
+                      title="Gérer les paiements"
+                      onClick={() => {
+                        setEditingDossierId(dossier.id)
+                        setModalOpen('paiements')
+                      }}
+                    >
+                      <CreditCard size={11} style={{ color: 'var(--green)' }} />
+                    </button>
+                    <button
+                      className="btn btn-icon btn-sm btn-ghost"
+                      title="Fichiers attachés"
+                      onClick={() => {
+                        setEditingDossierId(dossier.id)
+                        setModalOpen('fichiers')
+                      }}
+                    >
+                      <Folder size={11} style={{ color: 'var(--acc)' }} />
+                    </button>
+                  </div>
                 </tr>
               )
             })
           )}
         </tbody>
       </table>
+
+      {/* Pagination Footer */}
+      {filtered.length > 0 && (
+        <div className="table-pagination">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>Lignes par page</span>
+            <select
+              className="filter-select"
+              style={{ height: 28, fontSize: 11.5, padding: '0 24px 0 8px' }}
+              value={pageSize}
+              onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+            >
+              {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+              {filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}–${Math.min(safePage * pageSize, filtered.length)}`} / {filtered.length}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <button
+                className="btn btn-icon btn-sm btn-ghost"
+                disabled={safePage <= 1}
+                onClick={() => setPage(safePage - 1)}
+                title="Page précédente"
+                aria-label="Page précédente"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span style={{ fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--text-2)', padding: '0 6px' }}>
+                {safePage} / {totalPages}
+              </span>
+              <button
+                className="btn btn-icon btn-sm btn-ghost"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage(safePage + 1)}
+                title="Page suivante"
+                aria-label="Page suivante"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {contextMenu && (
         <ContextMenu

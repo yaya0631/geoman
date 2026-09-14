@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, ArrowRight, KeyRound, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setError('')
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      setError('Identifiants incorrects. Vérifiez votre email et mot de passe.')
+      setError('Identifiants incorrects. Vérifiez votre adresse email et mot de passe.')
     } else {
       navigate(from, { replace: true })
     }
@@ -44,7 +44,7 @@ export default function LoginPage() {
       redirectTo: `${window.location.origin}/login`,
     })
     if (error) {
-      setError(`Impossible d'envoyer le lien : ${error.message}`)
+      setError(`Impossible d'envoyer le lien de réinitialisation : ${error.message}`)
     } else {
       setSent(true)
     }
@@ -53,31 +53,45 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="login-logo">
-          <div className="login-logo-text">GEOMAN</div>
-          <div className="login-logo-sub">GESTION DES DOSSIERS FONCIERS</div>
+      <div className="login-card" style={{ animation: 'scale-in 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        {/* Brand Header */}
+        <div className="login-logo" style={{ animation: 'slide-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div className="login-logo-icon">
+            GM
+          </div>
+          <div className="login-logo-text">GEOMAN PRO</div>
+          <div className="login-logo-sub">SYSTÈME DE GESTION DES DOSSIERS FONCIERS</div>
         </div>
 
-        <h2 className="login-title">{forgot ? 'Réinitialiser le mot de passe' : 'Connexion'}</h2>
+        <h2 className="login-title">
+          {forgot ? 'Récupération de mot de passe' : 'Connexion à votre espace'}
+        </h2>
 
         {forgot ? (
-          <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {sent ? (
-              <div style={{ background: 'var(--green-dim)', border: '1px solid var(--green)', borderRadius: 5, padding: '10px 12px', fontSize: 12.5, color: 'var(--green)', lineHeight: 1.5 }}>
-                Un lien de réinitialisation vous a été envoyé. Vérifiez votre boîte de réception.
+              <div style={{
+                background: 'var(--green-dim)',
+                border: '1px solid var(--green)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px 14px',
+                fontSize: 13,
+                color: 'var(--green)',
+                lineHeight: 1.5
+              }}>
+                Un email contenant les instructions de réinitialisation a été envoyé à <strong>{email}</strong>.
               </div>
             ) : (
               <>
                 <div className="form-field">
-                  <label className="form-label">Adresse e-mail</label>
+                  <label className="form-label">Adresse e-mail professionnelle</label>
                   <div style={{ position: 'relative' }}>
-                    <Mail size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+                    <Mail size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
                     <input
                       className="form-input"
-                      style={{ paddingLeft: 28 }}
+                      style={{ paddingLeft: 32 }}
                       type="email"
-                      placeholder="admin@geoman.dz"
+                      placeholder="contact@geometre.dz"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required
@@ -87,93 +101,151 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 5, padding: '8px 10px', fontSize: 12, color: 'var(--red)' }}>
-                    {error}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    background: 'var(--red-dim)',
+                    border: '1px solid var(--red)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '9px 12px',
+                    fontSize: 12.5,
+                    color: 'var(--red)'
+                  }}>
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>{error}</span>
                   </div>
                 )}
 
-                <button type="submit" className="btn btn-primary" style={{ height: 38, width: '100%', justifyContent: 'center', fontSize: 13, marginTop: 4 }} disabled={loading}>
-                  {loading ? 'Envoi...' : 'Envoyer le lien'}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ height: 40, width: '100%', justifyContent: 'center', fontSize: 13.5, marginTop: 4 }}
+                  disabled={loading}
+                >
+                  {loading ? 'Envoi en cours...' : 'Envoyer le lien de récupération'}
                 </button>
-                <button type="button" className="btn" style={{ width: '100%', justifyContent: 'center', height: 34 }} onClick={() => { setForgot(false); setError('') }}>
-                  ← Retour à la connexion
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ width: '100%', justifyContent: 'center', height: 34 }}
+                  onClick={() => { setForgot(false); setError('') }}
+                >
+                  ← Revenir à la connexion
                 </button>
               </>
             )}
           </form>
         ) : (
-        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="form-field">
-            <label className="form-label">Adresse e-mail</label>
-            <div style={{ position: 'relative' }}>
-              <Mail size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
-              <input
-                className="form-input"
-                style={{ paddingLeft: 28 }}
-                type="email"
-                placeholder="admin@geoman.dz"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="form-field">
+              <label className="form-label">Adresse e-mail</label>
+              <div style={{ position: 'relative' }}>
+                <Mail size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 32 }}
+                  type="email"
+                  placeholder="admin@geoman.dz"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="form-field">
-            <label className="form-label">Mot de passe</label>
-            <div style={{ position: 'relative' }}>
-              <Lock size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
-              <input
-                className="form-input"
-                style={{ paddingLeft: 28, paddingRight: 32 }}
-                type={showPwd ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd(!showPwd)}
-                aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}
-              >
-                {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
+            <div className="form-field">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label">Mot de passe</label>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setForgot(true)}
+                  style={{ padding: 0, height: 'auto', fontSize: 11.5, color: 'var(--acc)' }}
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 32, paddingRight: 36 }}
+                  type={showPwd ? 'text' : 'password'}
+                  placeholder="••••••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(!showPwd)}
+                  aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-3)',
+                    padding: 2,
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div style={{ background: 'var(--red-dim)', border: '1px solid var(--red)', borderRadius: 5, padding: '8px 10px', fontSize: 12, color: 'var(--red)' }}>
-              {error}
-            </div>
-          )}
+            {error && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'var(--red-dim)',
+                border: '1px solid var(--red)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '9px 12px',
+                fontSize: 12.5,
+                color: 'var(--red)'
+              }}>
+                <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ height: 38, width: '100%', justifyContent: 'center', fontSize: 13, marginTop: 4 }}
-            disabled={loading}
-          >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
-        )}
-
-        {!forgot && !sent && (
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <button type="button" className="btn btn-sm" onClick={() => setForgot(true)} style={{ color: 'var(--text-3)' }}>
-              Mot de passe oublié ?
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ height: 42, width: '100%', justifyContent: 'center', fontSize: 14, fontWeight: 700, marginTop: 4 }}
+              disabled={loading}
+            >
+              <span>{loading ? 'Authentification...' : 'Ouvrir ma session'}</span>
+              {!loading && <ArrowRight size={15} />}
             </button>
-          </div>
+          </form>
         )}
 
-        <p style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', marginTop: 16, lineHeight: 1.5 }}>
-          GeoMan — Système de gestion foncière<br />
-          République Algérienne Démocratique et Populaire
-        </p>
+        {/* Security Badge Footer */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          marginTop: 24,
+          paddingTop: 16,
+          borderTop: '1px solid var(--border)',
+          fontSize: 11,
+          color: 'var(--text-3)'
+        }}>
+          <ShieldCheck size={14} style={{ color: 'var(--green)' }} />
+          <span>Environnement sécurisé • Chiffrement RLS PostgreSQL</span>
+        </div>
       </div>
     </div>
   )

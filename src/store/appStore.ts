@@ -106,6 +106,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultSort: 'id',
   defaultSortDir: 'desc',
   overdueThresholdDays: 7,
+  enableBrowserNotifications: true,
 }
 
 export const useAppStore = create<AppState>()(

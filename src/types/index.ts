@@ -84,6 +84,7 @@ export interface AppSettings {
   defaultSort: SortField
   defaultSortDir: SortDir
   overdueThresholdDays: number
+  enableBrowserNotifications?: boolean
 }
 
 export interface ColumnConfig {
@@ -108,6 +109,143 @@ export interface User {
   id: string
   email: string
   role?: 'admin' | 'viewer'
+}
+
+export type TachePriorite = 'Basse' | 'Normale' | 'Haute' | 'Urgente'
+export type TacheStatut = 'À faire' | 'En cours' | 'Terminée' | 'Annulée'
+export type DevisStatut = 'Brouillon' | 'Envoyé' | 'Accepté' | 'Refusé' | 'Expiré'
+export type FactureStatut = 'Brouillon' | 'Émise' | 'Partielle' | 'Payée' | 'En retard' | 'Annulée'
+
+export interface Client {
+  id: string
+  nom: string
+  telephone?: string
+  email?: string
+  adresse?: string
+  wilaya?: string
+  commune?: string
+  nif?: string
+  observation?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Tache {
+  id: string
+  dossier_id?: string | null
+  titre: string
+  description?: string
+  responsable?: string
+  priorite: TachePriorite
+  statut: TacheStatut
+  echeance?: string | null
+  terminee_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Evenement {
+  id: string
+  dossier_id?: string | null
+  titre: string
+  type: string
+  date_debut: string
+  date_fin?: string | null
+  lieu?: string
+  description?: string
+  rappel_minutes?: number
+  created_at: string
+}
+
+export interface CourrierModele {
+  id: string
+  nom: string
+  categorie: string
+  objet?: string
+  contenu: string
+  actif: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CourrierEnvoye {
+  id: string
+  dossier_id?: string | null
+  client_id?: string | null
+  modele_id?: string | null
+  destinataire?: string
+  objet: string
+  contenu: string
+  date_envoi: string
+  moyen: string
+}
+
+export interface ContactAdmin {
+  id: string
+  organisme: string
+  service?: string
+  wilaya?: string
+  telephone?: string
+  email?: string
+  adresse?: string
+  observation?: string
+  created_at: string
+}
+
+export interface Devis {
+  id: string
+  reference: string
+  dossier_id?: string | null
+  client_id?: string | null
+  date_devis: string
+  validite_jours: number
+  objet?: string
+  montant_ht: number
+  taxe: number
+  montant_ttc: number
+  statut: DevisStatut | string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Facture {
+  id: string
+  reference: string
+  dossier_id?: string | null
+  client_id?: string | null
+  devis_id?: string | null
+  date_facture: string
+  echeance?: string | null
+  objet?: string
+  montant_ht: number
+  taxe: number
+  montant_ttc: number
+  statut: FactureStatut | string
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Reglement {
+  id: string
+  facture_id: string
+  dossier_id?: string | null
+  date_reglement: string
+  montant: number
+  mode: string
+  reference?: string
+  note?: string
+  created_at: string
+}
+
+export interface CabinetInfo {
+  nom: string
+  adresse: string
+  telephone: string
+  email: string
+  nif: string
+  wilaya: string
 }
 
 export interface DashboardStats {
