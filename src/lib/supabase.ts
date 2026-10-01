@@ -3,41 +3,37 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-})
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-export type Database = {
-  public: {
-    Tables: {
-      dossiers: {
-        Row: {
-          id: string
-          nom: string
-          endroit: string | null
-          telephone: string | null
-          date_finale: string | null
-          montant: number
-          acte: boolean
-          regul: boolean
-          agricole: boolean
-          depot_cad: string | null
-          depot_domain: string | null
-          etat: string
-          observations: string | null
-          archived: boolean
-          in_trash: boolean
-          date_archive: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: Omit<Database['public']['Tables']['dossiers']['Row'], 'created_at' | 'updated_at'>
-        Update: Partial<Database['public']['Tables']['dossiers']['Insert']>
-      }
-    }
-  }
+export type Client = {
+  id: string
+  nom: string
+  telephone: string | null
+  adresse: string | null
+  observation: string | null
+  created_at: string
+}
+
+export type Dossier = {
+  id: string
+  nom: string
+  endroit: string | null
+  etat: string
+  observations: string | null
+  archived: boolean
+  created_at: string
+}
+
+export type Statut = 'actif' | 'instance' | 'archive'
+
+export function statutOf(d: Pick<Dossier, 'etat' | 'archived'>): Statut {
+  if (d.archived || d.etat === 'Termine') return 'archive'
+  if (d.etat === 'En attente') return 'instance'
+  return 'actif'
+}
+
+export const STATUT_LABEL: Record<Statut, string> = {
+  actif: 'En cours',
+  instance: 'En instance',
+  archive: 'Archivé',
 }
