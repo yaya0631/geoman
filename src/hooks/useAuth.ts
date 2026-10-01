@@ -4,11 +4,6 @@ import type { Session } from '@supabase/supabase-js'
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
-/**
- * Suit l'état de session Supabase (connexion / déconnexion).
- * Retourne { status, session } — status vaut 'loading' tant que
- * la session initiale n'est pas déterminée (évite le flash des routes).
- */
 export function useAuth(): { status: AuthStatus; session: Session | null } {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [session, setSession] = useState<Session | null>(null)
@@ -21,7 +16,6 @@ export function useAuth(): { status: AuthStatus; session: Session | null } {
       setSession(data.session)
       setStatus(data.session ? 'authenticated' : 'unauthenticated')
     }).catch(() => {
-      // Environnement sans clé Supabase : aucune session possible
       if (!mounted) return
       setSession(null)
       setStatus('unauthenticated')

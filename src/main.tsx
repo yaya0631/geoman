@@ -7,12 +7,7 @@ import App from './App'
 import './index.css'
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
+  defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -21,24 +16,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter basename={import.meta.env.BASE_URL}>
         <App />
         <Toaster
-          position="bottom-right"
+          position="bottom-center"
           toastOptions={{
-            style: {
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              border: '1px solid var(--border-2)',
-              fontSize: '12.5px',
-              fontFamily: 'var(--font-ui)',
-              borderRadius: '8px',
-              padding: '10px 14px',
-            },
-            success: {
-              iconTheme: { primary: 'var(--green)', secondary: 'transparent' },
-            },
-            error: {
-              iconTheme: { primary: 'var(--red)', secondary: 'transparent' },
-            },
-            duration: 3000,
+            duration: 2500,
+            style: { background: '#1d2a27', color: '#fff', fontSize: '14px', borderRadius: '10px', padding: '10px 14px' },
           }}
         />
       </BrowserRouter>
