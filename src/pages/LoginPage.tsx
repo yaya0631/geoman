@@ -22,7 +22,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     if (forgot) {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/login` })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login` })
       error ? setError(error.message) : setSent(true)
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
