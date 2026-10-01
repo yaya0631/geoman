@@ -14,6 +14,7 @@ import CommandBar from '@/components/layout/CommandBar'
 import FilterBar from '@/components/layout/FilterBar'
 import StatusBar from '@/components/layout/StatusBar'
 import Legend from '@/components/layout/Legend'
+import GeoSidebar from '@/components/layout/GeoSidebar'
 import { TableSkeleton } from '@/components/ui/Skeleton'
 
 // Table & Sidebar
@@ -65,7 +66,14 @@ export default function MainPage() {
   }
 
   return (
+    <div className="geo-layout">
+    <GeoSidebar />
     <div className="app-root">
+      <div className="geo-crumbs">
+        <span>Suivi des dossiers</span>
+        <span aria-hidden>›</span>
+        <strong>Suivi des Dossiers - Vue d’Avancement</strong>
+      </div>
       <Navbar />
       <CommandBar />
       <FilterBar />
@@ -127,6 +135,7 @@ export default function MainPage() {
       {modalOpen === 'command-palette' && (
         <CommandPalette onClose={closeModal} />
       )}
+    </div>
     </div>
   )
 }
