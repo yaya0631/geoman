@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import { X } from 'lucide-react'
 import { norm } from '@/lib/search'
 import { useClientMutations } from '@/hooks/useData'
+import { useDialog } from '@/hooks/useDialog'
 import type { ClientRow } from '@/pages/ClientsPage'
 
 type Props = {
@@ -15,6 +17,7 @@ type Props = {
 
 export default function ClientForm({ initialName = '', existing, onClose, onCreated, onOpenExisting }: Props) {
   const { create } = useClientMutations()
+  const ref = useDialog<HTMLFormElement>(onClose)
   const [nom, setNom] = useState(initialName)
   const [telephone, setTelephone] = useState('')
   const [adresse, setAdresse] = useState('')
@@ -59,26 +62,26 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
       toast.success('Client ajouté')
       onCreated(c.id)
     } catch (err) {
-      toast.error(`Échec : ${(err as Error).message}`)
+      toast.error(`Enregistrement impossible. ${(err as Error).message}`)
     }
   }
 
-  return (
+  return createPortal(
     <div className="overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={submit}>
+      <form ref={ref} className="modal" onSubmit={submit} role="dialog" aria-modal="true" aria-labelledby="form-title">
         <div className="modal-head">
-          <h2>Nouveau client</h2>
-          <button type="button" className="btn-ghost icon" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+          <h2 id="form-title">Nouveau client</h2>
+          <button type="button" className="btn-ghost icon" onClick={onClose} aria-label="Fermer"><X size={18} aria-hidden /></button>
         </div>
 
         <label className="field">
-          <span>Nom complet *</span>
-          <input autoFocus required value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex. BENALI Mohamed" />
+          <span>Nom complet <span className="required" aria-hidden>*</span></span>
+          <input autoFocus required name="nom" autoComplete="off" value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex. BENALI Mohamed" />
         </label>
 
         {similar.length > 0 && (
-          <div className="warn">
-            <strong>Client similaire déjà enregistré :</strong>
+          <div className="warn" role="status">
+            <strong>Un client au nom proche existe déjà. Ouvrir sa fiche :</strong>
             {similar.map(c => (
               <button type="button" key={c.id} className="link" onClick={() => onOpenExisting(c.id)}>
                 {c.nom}{c.adresse ? ` — ${c.adresse}` : ''}
@@ -91,7 +94,7 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
           <label className="field">
             <span>N° de classement</span>
             <input type="number" inputMode="numeric" min={1} value={numero} onChange={e => setNumero(e.target.value)}
-              aria-invalid={!!numeroPris} className="mono" />
+              aria-invalid={!!numeroPris} aria-describedby={numeroPris ? 'form-error' : undefined} className="mono" />
           </label>
           <label className="field">
             <span>Boîte</span>
@@ -101,11 +104,11 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
           <label className="field">
             <span>Code client</span>
             <input value={code} onChange={e => setCode(e.target.value)} placeholder="Ex. AET-2024-017"
-              aria-invalid={!!codePris} className="mono" />
+              aria-invalid={!!codePris} aria-describedby={codePris ? 'form-error' : undefined} className="mono" />
           </label>
         </div>
         {(numeroPris || codePris) && (
-          <p className="field-error" role="alert">
+          <p className="field-error" id="form-error" role="alert">
             {numeroPris ? `Le n° ${numero} est déjà attribué à ${numeroPris.nom}. Choisissez un autre numéro.`
               : `Le code « ${code} » est déjà utilisé par ${codePris!.nom}.`}
           </p>
@@ -114,7 +117,7 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
         <div className="field-row">
           <label className="field">
             <span>Téléphone</span>
-            <input type="tel" inputMode="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="0550 12 34 56" />
+            <input type="tel" inputMode="tel" value={telephone} onChange={e => setTelephone(e.target.value)} name="tel" autoComplete="off" placeholder="0550 12 34 56" />
           </label>
           <label className="field">
             <span>Adresse / lieu</span>
@@ -134,6 +137,7 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   )
 }

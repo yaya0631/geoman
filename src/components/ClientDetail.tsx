@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
-import { Archive, ArrowDownToLine, ArrowUpFromLine, MapPin, Phone, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Archive, ArrowDownToLine, ArrowUpFromLine, MapPin, Phone, Plus, Trash2, X } from 'lucide-react'
 import { initials, fmtDate } from '@/lib/search'
 import { statutOf, STATUT_LABEL, type Statut } from '@/lib/supabase'
-import { useClientMutations, useDossierMutations, useMouvements, type ClientInput } from '@/hooks/useData'
-import type { ClientRow } from '@/pages/ClientsPage'
+import { useClientMutations, useDossierMutations, useDossiers, useMouvements, type ClientInput } from '@/hooks/useData'
+import { useDialog } from '@/hooks/useDialog'
+import { OVERDUE_DAYS, type ClientRow } from '@/pages/ClientsPage'
 
 const fmtDateTime = (d: string) =>
   new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -33,7 +35,15 @@ function EditableField({ label, value, onSave, multiline, type }: {
   )
 }
 
-export default function ClientDetail({ client, onClose }: { client: ClientRow; onClose: () => void }) {
+export default function ClientDetail({ client, motifs, onClose }: { client: ClientRow; motifs: string[]; onClose: () => void }) {
+  const ref = useDialog<HTMLElement>(onClose)
+  const dossiersQ = useDossiers()
+  // Objets de dossier déjà saisis, proposés pendant la frappe
+  const objets = useMemo(() => {
+    const seen = new Map<string, number>()
+    for (const d of dossiersQ.data ?? []) if (d.observations && d.observations.length < 60) seen.set(d.observations, (seen.get(d.observations) ?? 0) + 1)
+    return [...seen.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40).map(([k]) => k)
+  }, [dossiersQ.data])
   const { update, remove, move } = useClientMutations()
   const dossierM = useDossierMutations()
   const mouvementsQ = useMouvements(client.id)
@@ -44,12 +54,12 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
   const toggleArchive = (e?: React.FormEvent) => {
     e?.preventDefault()
     const type = client.en_archive ? 'sortie' : 'retour'
-    move.mutate({ id: client.id, type, motif: motif.trim() || null }, {
+    move.mutate({ ids: [client.id], type, motif: motif.trim() || null }, {
       onSuccess: () => {
         toast.success(type === 'sortie' ? 'Dossier sorti de l\'archive' : 'Dossier remis en archive')
         setMotif(''); setAskMotif(false)
       },
-      onError: err => toast.error(`Échec : ${(err as Error).message}`),
+      onError: err => toast.error(`Enregistrement impossible. ${(err as Error).message}`),
     })
   }
   const [adding, setAdding] = useState(false)
@@ -60,7 +70,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
   const save = (patch: Partial<ClientInput> & { oldNom?: string }) =>
     update.mutate({ id: client.id, ...patch }, {
       onSuccess: () => toast.success('Enregistré'),
-      onError: err => toast.error(`Échec : ${(err as Error).message}`),
+      onError: err => toast.error(`Enregistrement impossible. ${(err as Error).message}`),
     })
 
   const addDossier = async (e: React.FormEvent) => {
@@ -73,7 +83,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
       toast.success('Dossier ajouté')
       setAdding(false); setNumero(''); setObjet(''); setStatut('actif')
     } catch (err) {
-      toast.error(`Échec : ${(err as Error).message}`)
+      toast.error(`Enregistrement impossible. ${(err as Error).message}`)
     }
   }
 
@@ -88,22 +98,26 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
     })
   }
 
-  return (
+  return createPortal(
     <div className="overlay drawer-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <aside className="drawer" aria-label={`Fiche de ${client.nom}`}>
+      <aside ref={ref} className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
         <div className="drawer-head">
-          <span className="avatar lg">{initials(client.nom)}</span>
+          <span className="avatar lg" aria-hidden>{initials(client.nom)}</span>
           <div className="drawer-title">
-            <h2>{client.nom}</h2>
-            <span className="muted">Client depuis le {fmtDate(client.created_at)}</span>
+            <h2 id="drawer-title">{client.nom}</h2>
+            <span className="muted">
+              {client.numero != null && <>N° <span className="num">{client.numero}</span> · </>}
+              {client.code && <><span className="mono">{client.code}</span> · </>}
+              Client depuis le {fmtDate(client.created_at)}
+            </span>
           </div>
-          <button className="btn-ghost icon" onClick={onClose} aria-label="Fermer"><X size={19} /></button>
+          <button className="btn-ghost icon" onClick={onClose} aria-label="Fermer la fiche"><X size={19} aria-hidden /></button>
         </div>
 
         <div className="quick">
           {client.telephone
             ? <a className="btn-secondary" href={`tel:${client.telephone.replace(/\s/g, '')}`}><Phone size={15} /> Appeler</a>
-            : <span className="btn-secondary disabled"><Phone size={15} /> Pas de numéro</span>}
+            : <span className="btn-secondary disabled" aria-disabled="true"><Phone size={15} aria-hidden /> Pas de numéro</span>}
           {client.adresse && (
             <a className="btn-secondary" target="_blank" rel="noreferrer"
               href={`https://www.google.com/maps/search/${encodeURIComponent(client.adresse + ', Oran')}`}>
@@ -112,26 +126,27 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
           )}
         </div>
 
-        <section className={`location ${client.en_archive ? 'in' : 'out'}`} aria-live="polite">
+        <section className={`location ${client.en_archive ? 'in' : client.enRetard ? 'late' : 'out'}`} aria-live="polite">
           <div className="location-top">
             <span className="location-icon" aria-hidden>
-              {client.en_archive ? <Archive size={18} /> : <ArrowUpFromLine size={18} />}
+              {client.en_archive ? <Archive size={18} /> : client.enRetard ? <AlertTriangle size={18} /> : <ArrowUpFromLine size={18} />}
             </span>
             <div className="location-text">
-              <strong>{client.en_archive ? 'Dans l\'archive' : 'Sorti de l\'archive'}</strong>
+              <strong>{client.en_archive ? 'Dans l\'archive' : client.enRetard ? `Sorti depuis ${client.joursSorti} jours` : 'Sorti de l\'archive'}</strong>
               <span>
                 {client.en_archive
                   ? <>{client.boite ? `Boîte ${client.boite}` : 'Non rangé'}{client.numero != null && <> · N° <span className="mono">{client.numero}</span></>}</>
-                  : lastOut ? <>Depuis le {fmtDateTime(lastOut.created_at)}{lastOut.motif && ` — ${lastOut.motif}`}</> : 'Date de sortie inconnue'}
+                  : lastOut ? <>{client.enRetard ? `Plus de ${OVERDUE_DAYS} jours. ` : ''}Sorti le {fmtDateTime(lastOut.created_at)}{lastOut.motif && ` — ${lastOut.motif}`}</> : 'Date de sortie inconnue'}
               </span>
             </div>
           </div>
           {askMotif ? (
             <form className="location-form" onSubmit={toggleArchive}>
               <label className="field">
-                <span>{client.en_archive ? 'Motif de sortie' : 'Remarque au retour'} (facultatif)</span>
-                <input autoFocus value={motif} onChange={e => setMotif(e.target.value)}
+                <span>{client.en_archive ? 'Motif de sortie' : 'Remarque au retour'} <span className="optional">facultatif</span></span>
+                <input autoFocus value={motif} onChange={e => setMotif(e.target.value)} list="motifs"
                   placeholder={client.en_archive ? 'Ex. Remis au client, dépôt cadastre…' : 'Ex. Complet, pièces ajoutées…'} />
+                <datalist id="motifs">{motifs.map(m => <option key={m} value={m} />)}</datalist>
               </label>
               <div className="modal-foot">
                 <button type="button" className="btn-secondary" onClick={() => { setAskMotif(false); setMotif('') }}>Annuler</button>
@@ -173,7 +188,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
         <section className="drawer-section">
           <div className="section-head">
             <h3>Dossiers <span className="muted">{client.dossiers.length}</span></h3>
-            {!adding && <button className="btn-ghost small" onClick={() => setAdding(true)}><Plus size={15} /> Ajouter</button>}
+            {!adding && <button className="btn-ghost small" onClick={() => setAdding(true)}><Plus size={15} aria-hidden /> Ajouter un dossier</button>}
           </div>
 
           {adding && (
@@ -187,7 +202,8 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
                   </select></label>
               </div>
               <label className="field"><span>Objet / note</span>
-                <input value={objet} onChange={e => setObjet(e.target.value)} placeholder="Ex. Établissement EDD" /></label>
+                <input value={objet} onChange={e => setObjet(e.target.value)} placeholder="Ex. Établissement EDD" list="objets" />
+                <datalist id="objets">{objets.map(o => <option key={o} value={o} />)}</datalist></label>
               <div className="modal-foot">
                 <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>Annuler</button>
                 <button type="submit" className="btn-primary" disabled={dossierM.create.isPending}>Créer le dossier</button>
@@ -196,7 +212,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
           )}
 
           {client.dossiers.length === 0 && !adding ? (
-            <p className="muted small-text">Aucun dossier pour ce client.</p>
+            <p className="muted small-text">Aucun dossier pour l'instant. Ajoutez-en un pour suivre son avancement.</p>
           ) : (
             <ul className="dossiers">
               {client.dossiers.map(d => {
@@ -205,7 +221,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
                   <li key={d.id} className="dossier">
                     <div className="dossier-top">
                       <span className="mono dossier-id">{d.id}</span>
-                      <select className={`badge-select ${s}`} value={s} onChange={e => changeStatut(d.id, e.target.value as Statut)} aria-label="Statut">
+                      <select className={`badge-select ${s}`} value={s} onChange={e => changeStatut(d.id, e.target.value as Statut)} aria-label={`Statut du dossier ${d.id}`}>
                         {(Object.keys(STATUT_LABEL) as Statut[]).map(k => <option key={k} value={k}>{STATUT_LABEL[k]}</option>)}
                       </select>
                     </div>
@@ -221,7 +237,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
         <section className="drawer-section">
           <h3>Historique <span className="muted">{mouvementsQ.data?.length ?? ''}</span></h3>
           {mouvementsQ.isLoading ? <p className="muted small-text">Chargement…</p>
-            : mouvementsQ.error ? <p className="muted small-text">Historique indisponible. Vérifiez que la migration v6 a été appliquée.</p>
+            : mouvementsQ.error ? <p className="muted small-text">Historique indisponible pour le moment. Réessayez plus tard.</p>
             : (
               <ol className="timeline">
                 {mouvementsQ.data!.map(m => (
@@ -239,8 +255,9 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
             )}
         </section>
 
-        <button className="btn-danger" onClick={del}><Trash2 size={15} /> Supprimer ce client</button>
+        <button className="btn-danger" onClick={del}><Trash2 size={15} aria-hidden /> Supprimer ce client</button>
       </aside>
-    </div>
+    </div>,
+    document.body,
   )
 }
