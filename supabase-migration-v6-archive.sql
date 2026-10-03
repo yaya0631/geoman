@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS client_mouvements (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_client_mouvements_client ON client_mouvements(client_id, created_at DESC);
+-- Dernières sorties (alerte « sorti depuis plus de 30 jours »)
+CREATE INDEX IF NOT EXISTS idx_client_mouvements_type   ON client_mouvements(type, created_at DESC);
 
 -- ═══ 3. RLS : même règle que les autres tables (utilisateurs connectés uniquement) ═══
 ALTER TABLE client_mouvements ENABLE ROW LEVEL SECURITY;

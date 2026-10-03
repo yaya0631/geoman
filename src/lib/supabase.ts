@@ -48,6 +48,17 @@ export function statutOf(d: Pick<Dossier, 'etat' | 'archived'>): Statut {
   return 'actif'
 }
 
+// Au-delà de ce délai, un dossier sorti est signalé en retard
+export const RETARD_JOURS = 30
+export const joursDepuis = (d: string) => Math.floor((Date.now() - new Date(d).getTime()) / 86_400_000)
+
+// Types d'objet repris de l'ancienne base Access
+export const OBJETS = [
+  'ED — État descriptif', 'EDD — État descriptif de division', 'M — Morcellement', 'ID — Identification',
+  'R — Rétablissement de limites', 'DA — Délimitation', 'Bornage', 'Lotissement', 'Levé topographique',
+  'Implantation', 'Certificat de possession', 'Plan de situation', 'Division', 'Régularisation', 'Expertise', 'Cadastre',
+]
+
 export const STATUT_LABEL: Record<Statut, string> = {
   actif: 'En cours',
   instance: 'En instance',

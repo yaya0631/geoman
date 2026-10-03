@@ -8,12 +8,13 @@ import type { ClientRow } from '@/pages/ClientsPage'
 type Props = {
   initialName?: string
   existing: ClientRow[]
+  places: string[]
   onClose: () => void
   onCreated: (id: string) => void
   onOpenExisting: (id: string) => void
 }
 
-export default function ClientForm({ initialName = '', existing, onClose, onCreated, onOpenExisting }: Props) {
+export default function ClientForm({ initialName = '', existing, places, onClose, onCreated, onOpenExisting }: Props) {
   const { create } = useClientMutations()
   const [nom, setNom] = useState(initialName)
   const [telephone, setTelephone] = useState('')
@@ -33,6 +34,8 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
     return before?.boite ?? null
   }, [numero, existing])
   const numeroPris = existing.find(c => numero && c.numero === Number(numero))
+  // Même lieu déjà saisi avec une autre orthographe (casse, accents)
+  const lieuConnu = adresse.trim() ? places.find(p => norm(p) === norm(adresse) && p !== adresse.trim()) : undefined
   const codePris = existing.find(c => code.trim() && norm(c.code) === norm(code))
 
   // Clients au nom proche (tous les mots saisis présents) pour éviter les doublons
@@ -118,9 +121,14 @@ export default function ClientForm({ initialName = '', existing, onClose, onCrea
           </label>
           <label className="field">
             <span>Adresse / lieu</span>
-            <input value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="Ex. Aïn El Turck" />
+            <input list="places" value={adresse} onChange={e => setAdresse(e.target.value)} placeholder="Ex. Aïn El Turck" />
           </label>
         </div>
+        {lieuConnu && (
+          <p className="field-hint">
+            Déjà enregistré sous « {lieuConnu} ». <button type="button" className="link" onClick={() => setAdresse(lieuConnu)}>Utiliser cette orthographe</button>
+          </p>
+        )}
 
         <label className="field">
           <span>Note</span>

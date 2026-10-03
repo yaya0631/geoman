@@ -51,6 +51,25 @@ export function useMouvements(clientId: string) {
   })
 }
 
+// Date de la dernière sortie de chaque client (pour signaler les sorties trop longues)
+export function useLastSorties() {
+  return useQuery({
+    queryKey: [...MOUVEMENTS, 'last-sorties'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_mouvements')
+        .select('client_id, created_at')
+        .eq('type', 'sortie')
+        .order('created_at', { ascending: false })
+        .limit(10000)
+      if (error) throw error
+      const last = new Map<string, string>()
+      for (const m of data ?? []) if (!last.has(m.client_id)) last.set(m.client_id, m.created_at)
+      return last
+    },
+  })
+}
+
 export type ClientInput = Pick<Client, 'nom' | 'telephone' | 'adresse' | 'observation' | 'code' | 'numero' | 'boite'>
 
 export function useClientMutations() {
@@ -98,10 +117,23 @@ export function useClientMutations() {
       const { error } = await supabase.from('clients').update({ en_archive: type === 'retour' }).eq('id', id)
       if (error) throw error
     },
-    onSuccess: (_d, v) => { refresh(); qc.invalidateQueries({ queryKey: [...MOUVEMENTS, v.id] }) },
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: MOUVEMENTS }) },
   })
 
-  return { create, update, remove, move }
+  // Même chose pour plusieurs dossiers à la fois, avec un motif commun
+  const moveMany = useMutation({
+    mutationFn: async ({ ids, type, motif }: { ids: string[]; type: Mouvement['type']; motif: string | null }) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const par = user?.email ?? null
+      const m = await supabase.from('client_mouvements').insert(ids.map(client_id => ({ client_id, type, motif, par })))
+      if (m.error) throw m.error
+      const { error } = await supabase.from('clients').update({ en_archive: type === 'retour' }).in('id', ids)
+      if (error) throw error
+    },
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: MOUVEMENTS }) },
+  })
+
+  return { create, update, remove, move, moveMany }
 }
 
 function friendly(error: { code?: string; message: string }) {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Archive, ArrowDownToLine, ArrowUpFromLine, MapPin, Phone, Plus, Trash2, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, ArrowUpFromLine, MapPin, Phone, Plus, Printer, Trash2, X } from 'lucide-react'
 import { initials, fmtDate } from '@/lib/search'
-import { statutOf, STATUT_LABEL, type Statut } from '@/lib/supabase'
+import { statutOf, joursDepuis, OBJETS, RETARD_JOURS, STATUT_LABEL, type Statut } from '@/lib/supabase'
 import { useClientMutations, useDossierMutations, useMouvements, type ClientInput } from '@/hooks/useData'
 import type { ClientRow } from '@/pages/ClientsPage'
 
@@ -16,8 +16,8 @@ const ETAT: Record<Statut, { etat: string; archived: boolean }> = {
   archive: { etat: 'Termine', archived: true },
 }
 
-function EditableField({ label, value, onSave, multiline, type }: {
-  label: string; value: string | null; onSave: (v: string | null) => void; multiline?: boolean; type?: string
+function EditableField({ label, value, onSave, multiline, type, list }: {
+  label: string; value: string | null; onSave: (v: string | null) => void; multiline?: boolean; type?: string; list?: string
 }) {
   const [v, setV] = useState(value ?? '')
   useEffect(() => setV(value ?? ''), [value])
@@ -27,7 +27,7 @@ function EditableField({ label, value, onSave, multiline, type }: {
       <span>{label}</span>
       {multiline
         ? <textarea rows={3} value={v} onChange={e => setV(e.target.value)} onBlur={commit} placeholder="—" />
-        : <input type={type} value={v} onChange={e => setV(e.target.value)} onBlur={commit}
+        : <input type={type} list={list} value={v} onChange={e => setV(e.target.value)} onBlur={commit}
             onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()} placeholder="—" />}
     </label>
   )
@@ -52,6 +52,18 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
       onError: err => toast.error(`Échec : ${(err as Error).message}`),
     })
   }
+  // « S » : sortir / remettre le dossier (hors saisie)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return
+      if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); setAskMotif(true) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const joursSorti = !client.en_archive && lastOut ? joursDepuis(lastOut.created_at) : null
+
   const [adding, setAdding] = useState(false)
   const [numero, setNumero] = useState('')
   const [objet, setObjet] = useState('')
@@ -95,7 +107,10 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
           <span className="avatar lg">{initials(client.nom)}</span>
           <div className="drawer-title">
             <h2>{client.nom}</h2>
-            <span className="muted">Client depuis le {fmtDate(client.created_at)}</span>
+            <span className="muted">
+              {client.numero != null && <><span className="mono">N° {client.numero}</span>{' · '}</>}
+              {client.boite ? `Boîte ${client.boite}` : 'Non rangé'} · depuis le {fmtDate(client.created_at)}
+            </span>
           </div>
           <button className="btn-ghost icon" onClick={onClose} aria-label="Fermer"><X size={19} /></button>
         </div>
@@ -110,9 +125,25 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
               <MapPin size={15} /> Carte
             </a>
           )}
+          <button className="btn-secondary" onClick={() => window.print()} title="Étiquette à coller sur la chemise">
+            <Printer size={15} /> Étiquette
+          </button>
         </div>
 
-        <section className={`location ${client.en_archive ? 'in' : 'out'}`} aria-live="polite">
+        <div className="print-label" aria-hidden>
+          <div className="pl-top">
+            <span className="pl-no">{client.numero ?? '—'}</span>
+            <span className="pl-box">{client.boite ? <>BOÎTE<strong>{client.boite}</strong></> : 'NON RANGÉ'}</span>
+          </div>
+          <div className="pl-name">{client.nom}</div>
+          <div className="pl-meta">
+            {client.code && <span>{client.code}</span>}
+            {client.adresse && <span>{client.adresse}</span>}
+            <span>Classé le {fmtDate(client.date_archivage ?? client.created_at)}</span>
+          </div>
+        </div>
+
+        <section className={`location ${client.en_archive ? 'in' : 'out'} ${joursSorti != null && joursSorti > RETARD_JOURS ? 'late' : ''}`} aria-live="polite">
           <div className="location-top">
             <span className="location-icon" aria-hidden>
               {client.en_archive ? <Archive size={18} /> : <ArrowUpFromLine size={18} />}
@@ -122,7 +153,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
               <span>
                 {client.en_archive
                   ? <>{client.boite ? `Boîte ${client.boite}` : 'Non rangé'}{client.numero != null && <> · N° <span className="mono">{client.numero}</span></>}</>
-                  : lastOut ? <>Depuis le {fmtDateTime(lastOut.created_at)}{lastOut.motif && ` — ${lastOut.motif}`}</> : 'Date de sortie inconnue'}
+                  : lastOut ? <>Depuis {joursSorti} jour{joursSorti! > 1 ? 's' : ''} ({fmtDateTime(lastOut.created_at)}){lastOut.motif && ` — ${lastOut.motif}`}</> : 'Date de sortie inconnue'}
               </span>
             </div>
           </div>
@@ -141,7 +172,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
               </div>
             </form>
           ) : (
-            <button className={client.en_archive ? 'btn-secondary' : 'btn-primary'} onClick={() => setAskMotif(true)}>
+            <button className={client.en_archive ? 'btn-secondary' : 'btn-primary'} onClick={() => setAskMotif(true)} title="Raccourci : S">
               {client.en_archive
                 ? <><ArrowUpFromLine size={16} /> Sortir le dossier</>
                 : <><ArrowDownToLine size={16} /> Remettre en archive</>}
@@ -165,7 +196,7 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
           <EditableField label="Nom complet" value={client.nom} onSave={v => v && save({ nom: v, oldNom: client.nom })} />
           <div className="field-row">
             <EditableField label="Téléphone" type="tel" value={client.telephone} onSave={v => save({ telephone: v })} />
-            <EditableField label="Adresse / lieu" value={client.adresse} onSave={v => save({ adresse: v })} />
+            <EditableField label="Adresse / lieu" list="places" value={client.adresse} onSave={v => save({ adresse: v })} />
           </div>
           <EditableField label="Note" multiline value={client.observation} onSave={v => save({ observation: v })} />
         </section>
@@ -187,7 +218,8 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
                   </select></label>
               </div>
               <label className="field"><span>Objet / note</span>
-                <input value={objet} onChange={e => setObjet(e.target.value)} placeholder="Ex. Établissement EDD" /></label>
+                <input list="objets" value={objet} onChange={e => setObjet(e.target.value)} placeholder="Choisir ou saisir…" /></label>
+              <datalist id="objets">{OBJETS.map(o => <option key={o} value={o} />)}</datalist>
               <div className="modal-foot">
                 <button type="button" className="btn-secondary" onClick={() => setAdding(false)}>Annuler</button>
                 <button type="submit" className="btn-primary" disabled={dossierM.create.isPending}>Créer le dossier</button>
