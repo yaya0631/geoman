@@ -51,6 +51,28 @@ export function useMouvements(clientId: string) {
   })
 }
 
+// Dernière sortie de chaque client + motifs déjà utilisés (alertes de retard, suggestions)
+export function useMouvementsIndex() {
+  return useQuery({
+    queryKey: [...MOUVEMENTS, 'index'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('client_mouvements')
+        .select('client_id, type, motif, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20000)
+      if (error) throw error
+      const lastSortie = new Map<string, string>()
+      const motifs = new Map<string, number>()
+      for (const m of data as Pick<Mouvement, 'client_id' | 'type' | 'motif' | 'created_at'>[]) {
+        if (m.type === 'sortie' && !lastSortie.has(m.client_id)) lastSortie.set(m.client_id, m.created_at)
+        if (m.motif) motifs.set(m.motif, (motifs.get(m.motif) ?? 0) + 1)
+      }
+      return { lastSortie, motifs: [...motifs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k]) => k) }
+    },
+  })
+}
+
 export type ClientInput = Pick<Client, 'nom' | 'telephone' | 'adresse' | 'observation' | 'code' | 'numero' | 'boite'>
 
 export function useClientMutations() {
@@ -89,16 +111,17 @@ export function useClientMutations() {
     onSuccess: refresh,
   })
 
-  // Sortie ou retour du dossier physique, avec trace dans l'historique
+  // Sortie ou retour de un ou plusieurs dossiers physiques, avec trace dans l'historique
   const move = useMutation({
-    mutationFn: async ({ id, type, motif }: { id: string; type: Mouvement['type']; motif: string | null }) => {
+    mutationFn: async ({ ids, type, motif }: { ids: string[]; type: Mouvement['type']; motif: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser()
-      const m = await supabase.from('client_mouvements').insert({ client_id: id, type, motif, par: user?.email ?? null })
+      const m = await supabase.from('client_mouvements')
+        .insert(ids.map(client_id => ({ client_id, type, motif, par: user?.email ?? null })))
       if (m.error) throw m.error
-      const { error } = await supabase.from('clients').update({ en_archive: type === 'retour' }).eq('id', id)
+      const { error } = await supabase.from('clients').update({ en_archive: type === 'retour' }).in('id', ids)
       if (error) throw error
     },
-    onSuccess: (_d, v) => { refresh(); qc.invalidateQueries({ queryKey: [...MOUVEMENTS, v.id] }) },
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: MOUVEMENTS }) },
   })
 
   return { create, update, remove, move }
