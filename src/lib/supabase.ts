@@ -11,8 +11,24 @@ export type Client = {
   telephone: string | null
   adresse: string | null
   observation: string | null
+  code: string | null
+  numero: number | null
+  boite: number | null
+  date_archivage: string | null
+  en_archive: boolean
   created_at: string
 }
+
+export type Mouvement = {
+  id: string
+  client_id: string
+  type: 'sortie' | 'retour'
+  motif: string | null
+  par: string | null
+  created_at: string
+}
+
+export const CLIENT_COLS = 'id, nom, telephone, adresse, observation, code, numero, boite, date_archivage, en_archive, created_at'
 
 export type Dossier = {
   id: string

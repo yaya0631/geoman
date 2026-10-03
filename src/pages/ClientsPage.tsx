@@ -1,5 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { LogOut, Plus, Search, X } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { ArrowUpFromLine, Download, LogOut, Plus, Search, X } from 'lucide-react'
+import { exportDatabase } from '@/lib/csv'
 import { supabase, statutOf, STATUT_LABEL, type Client, type Dossier, type Statut } from '@/lib/supabase'
 import { norm, initials } from '@/lib/search'
 import { useClients, useDossiers } from '@/hooks/useData'
@@ -13,7 +15,11 @@ const FILTRES: { key: Filtre; label: string }[] = [
   { key: 'instance', label: 'En instance' },
   { key: 'archive', label: 'Archivés' },
 ]
+type Lieu = 'tous' | 'in' | 'out'
+type Tri = 'numero' | 'boite' | 'nom' | 'recent'
 const PAGE = 60
+// Les clients sans numéro passent en fin de liste
+const byNum = (a: number | null, b: number | null) => (a ?? Infinity) - (b ?? Infinity)
 
 export type ClientRow = Client & { dossiers: Dossier[]; statut: Statut | null; haystack: string }
 
@@ -23,7 +29,21 @@ export default function ClientsPage() {
   const [query, setQuery] = useState('')
   const q = useDeferredValue(query)
   const [filtre, setFiltre] = useState<Filtre>('tous')
-  const [tri, setTri] = useState<'nom' | 'recent'>('nom')
+  const [lieu, setLieu] = useState<Lieu>('tous')
+  const [tri, setTri] = useState<Tri>('numero')
+  const [exporting, setExporting] = useState(false)
+
+  const runExport = async () => {
+    setExporting(true)
+    try {
+      const n = await exportDatabase()
+      toast.success(`Export terminé : ${n.clients} clients, ${n.dossiers} dossiers, ${n.mouvements} mouvements`)
+    } catch (err) {
+      toast.error(`Export impossible : ${(err as Error).message}`)
+    } finally {
+      setExporting(false)
+    }
+  }
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [limit, setLimit] = useState(PAGE)
@@ -52,7 +72,7 @@ export default function ClientsPage() {
       const dossiers = (byName.get(norm(c.nom)) ?? []).sort((a, b) => b.created_at.localeCompare(a.created_at))
       const statuts = dossiers.map(statutOf)
       const statut: Statut | null = statuts.includes('actif') ? 'actif' : statuts.includes('instance') ? 'instance' : statuts.length ? 'archive' : null
-      const haystack = norm([c.nom, c.adresse, c.telephone, c.observation, ...dossiers.map(d => `${d.id} ${d.observations ?? ''}`)].join(' '))
+      const haystack = norm([c.nom, c.code, c.numero, c.boite && `boite ${c.boite}`, c.adresse, c.telephone, c.observation, ...dossiers.map(d => `${d.id} ${d.observations ?? ''}`)].join(' '))
       return { ...c, dossiers, statut, haystack }
     })
   }, [clientsQ.data, dossiersQ.data])
@@ -62,17 +82,22 @@ export default function ClientsPage() {
     for (const r of rows) if (r.statut) c[r.statut]++
     return c
   }, [rows])
+  const sortis = useMemo(() => rows.filter(r => !r.en_archive).length, [rows])
 
   const filtered = useMemo(() => {
     const terms = norm(q).split(' ').filter(Boolean)
     const list = rows.filter(r =>
-      (filtre === 'tous' || r.statut === filtre) && terms.every(t => r.haystack.includes(t)))
-    return tri === 'nom'
-      ? list.sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }))
-      : list.sort((a, b) => b.created_at.localeCompare(a.created_at))
-  }, [rows, q, filtre, tri])
+      (filtre === 'tous' || r.statut === filtre)
+      && (lieu === 'tous' || (lieu === 'in') === r.en_archive)
+      && terms.every(t => r.haystack.includes(t)))
+    const byName = (a: ClientRow, b: ClientRow) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' })
+    if (tri === 'numero') return list.sort((a, b) => byNum(a.numero, b.numero) || byName(a, b))
+    if (tri === 'boite') return list.sort((a, b) => byNum(a.boite || null, b.boite || null) || byNum(a.numero, b.numero) || byName(a, b))
+    if (tri === 'nom') return list.sort(byName)
+    return list.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }, [rows, q, filtre, lieu, tri])
 
-  useEffect(() => setLimit(PAGE), [q, filtre, tri])
+  useEffect(() => setLimit(PAGE), [q, filtre, lieu, tri])
 
   const selected = rows.find(r => r.id === selectedId) ?? null
   const loading = clientsQ.isLoading || dossiersQ.isLoading
@@ -98,9 +123,14 @@ export default function ClientsPage() {
             <h1>Clients</h1>
             <p className="muted">{loading ? 'Chargement…' : `${rows.length} clients · ${dossiersQ.data?.length ?? 0} dossiers`}</p>
           </div>
-          <button className="btn-primary" onClick={() => setCreating(true)}>
-            <Plus size={17} /> Nouveau client
-          </button>
+          <div className="hero-actions">
+            <button className="btn-secondary" onClick={runExport} disabled={exporting || loading}>
+              <Download size={16} /> {exporting ? 'Export…' : 'Exporter CSV'}
+            </button>
+            <button className="btn-primary" onClick={() => setCreating(true)}>
+              <Plus size={17} /> Nouveau client
+            </button>
+          </div>
         </section>
 
         <div className="search">
@@ -128,7 +158,16 @@ export default function ClientsPage() {
               </button>
             ))}
           </div>
-          <select className="sort" value={tri} onChange={e => setTri(e.target.value as 'nom' | 'recent')} aria-label="Trier">
+          <div className="segmented" role="group" aria-label="Emplacement du dossier">
+            {([['tous', 'Partout', rows.length], ['in', 'En archive', rows.length - sortis], ['out', 'Sortis', sortis]] as const).map(([k, label, n]) => (
+              <button key={k} aria-pressed={lieu === k} onClick={() => setLieu(k)}>
+                {label}<span className="chip-n">{n}</span>
+              </button>
+            ))}
+          </div>
+          <select className="sort" value={tri} onChange={e => setTri(e.target.value as Tri)} aria-label="Trier">
+            <option value="numero">N° de classement</option>
+            <option value="boite">Boîte</option>
             <option value="nom">Nom A → Z</option>
             <option value="recent">Plus récents</option>
           </select>
@@ -155,12 +194,16 @@ export default function ClientsPage() {
               {filtered.slice(0, limit).map(r => (
                 <li key={r.id}>
                   <button className={`row ${selectedId === r.id ? 'active' : ''}`} onClick={() => setSelectedId(r.id)}>
-                    <span className="avatar">{initials(r.nom)}</span>
+                    <span className="file-no" title={r.boite ? `Boîte ${r.boite}` : 'Non rangé'}>
+                      <span className="mono">{r.numero ?? '—'}</span>
+                      <span className="file-box">{r.boite ? `B${r.boite}` : initials(r.nom)}</span>
+                    </span>
                     <span className="row-main">
-                      <span className="row-name">{r.nom}</span>
+                      <span className="row-name">{r.nom}{r.code && <span className="row-code mono">{r.code}</span>}</span>
                       <span className="row-sub">{r.adresse || 'Adresse non renseignée'}{r.telephone && <> · <span className="mono">{r.telephone}</span></>}</span>
                     </span>
                     <span className="row-meta">
+                      {!r.en_archive && <span className="badge out"><ArrowUpFromLine size={12} aria-hidden /> Sorti</span>}
                       {r.statut && <span className={`badge ${r.statut}`}>{STATUT_LABEL[r.statut]}</span>}
                       <span className="row-count">{r.dossiers.length} dossier{r.dossiers.length > 1 ? 's' : ''}</span>
                     </span>

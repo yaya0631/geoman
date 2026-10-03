@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { MapPin, Phone, Plus, Trash2, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, ArrowUpFromLine, MapPin, Phone, Plus, Trash2, X } from 'lucide-react'
 import { initials, fmtDate } from '@/lib/search'
 import { statutOf, STATUT_LABEL, type Statut } from '@/lib/supabase'
-import { useClientMutations, useDossierMutations } from '@/hooks/useData'
+import { useClientMutations, useDossierMutations, useMouvements, type ClientInput } from '@/hooks/useData'
 import type { ClientRow } from '@/pages/ClientsPage'
+
+const fmtDateTime = (d: string) =>
+  new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+const toInt = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : null)
 
 const ETAT: Record<Statut, { etat: string; archived: boolean }> = {
   actif: { etat: 'actif', archived: false },
@@ -30,14 +34,30 @@ function EditableField({ label, value, onSave, multiline, type }: {
 }
 
 export default function ClientDetail({ client, onClose }: { client: ClientRow; onClose: () => void }) {
-  const { update, remove } = useClientMutations()
+  const { update, remove, move } = useClientMutations()
   const dossierM = useDossierMutations()
+  const mouvementsQ = useMouvements(client.id)
+  const [motif, setMotif] = useState('')
+  const [askMotif, setAskMotif] = useState(false)
+  const lastOut = mouvementsQ.data?.find(m => m.type === 'sortie')
+
+  const toggleArchive = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    const type = client.en_archive ? 'sortie' : 'retour'
+    move.mutate({ id: client.id, type, motif: motif.trim() || null }, {
+      onSuccess: () => {
+        toast.success(type === 'sortie' ? 'Dossier sorti de l\'archive' : 'Dossier remis en archive')
+        setMotif(''); setAskMotif(false)
+      },
+      onError: err => toast.error(`Échec : ${(err as Error).message}`),
+    })
+  }
   const [adding, setAdding] = useState(false)
   const [numero, setNumero] = useState('')
   const [objet, setObjet] = useState('')
   const [statut, setStatut] = useState<Statut>('actif')
 
-  const save = (patch: { nom?: string; oldNom?: string; telephone?: string | null; adresse?: string | null; observation?: string | null }) =>
+  const save = (patch: Partial<ClientInput> & { oldNom?: string }) =>
     update.mutate({ id: client.id, ...patch }, {
       onSuccess: () => toast.success('Enregistré'),
       onError: err => toast.error(`Échec : ${(err as Error).message}`),
@@ -91,6 +111,54 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
             </a>
           )}
         </div>
+
+        <section className={`location ${client.en_archive ? 'in' : 'out'}`} aria-live="polite">
+          <div className="location-top">
+            <span className="location-icon" aria-hidden>
+              {client.en_archive ? <Archive size={18} /> : <ArrowUpFromLine size={18} />}
+            </span>
+            <div className="location-text">
+              <strong>{client.en_archive ? 'Dans l\'archive' : 'Sorti de l\'archive'}</strong>
+              <span>
+                {client.en_archive
+                  ? <>{client.boite ? `Boîte ${client.boite}` : 'Non rangé'}{client.numero != null && <> · N° <span className="mono">{client.numero}</span></>}</>
+                  : lastOut ? <>Depuis le {fmtDateTime(lastOut.created_at)}{lastOut.motif && ` — ${lastOut.motif}`}</> : 'Date de sortie inconnue'}
+              </span>
+            </div>
+          </div>
+          {askMotif ? (
+            <form className="location-form" onSubmit={toggleArchive}>
+              <label className="field">
+                <span>{client.en_archive ? 'Motif de sortie' : 'Remarque au retour'} (facultatif)</span>
+                <input autoFocus value={motif} onChange={e => setMotif(e.target.value)}
+                  placeholder={client.en_archive ? 'Ex. Remis au client, dépôt cadastre…' : 'Ex. Complet, pièces ajoutées…'} />
+              </label>
+              <div className="modal-foot">
+                <button type="button" className="btn-secondary" onClick={() => { setAskMotif(false); setMotif('') }}>Annuler</button>
+                <button type="submit" className="btn-primary" disabled={move.isPending}>
+                  {client.en_archive ? 'Confirmer la sortie' : 'Confirmer le retour'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button className={client.en_archive ? 'btn-secondary' : 'btn-primary'} onClick={() => setAskMotif(true)}>
+              {client.en_archive
+                ? <><ArrowUpFromLine size={16} /> Sortir le dossier</>
+                : <><ArrowDownToLine size={16} /> Remettre en archive</>}
+            </button>
+          )}
+        </section>
+
+        <section className="drawer-section">
+          <h3>Classement</h3>
+          <div className="field-row">
+            <EditableField label="N° de classement" type="number" value={client.numero?.toString() ?? null}
+              onSave={v => save({ numero: toInt(v) })} />
+            <EditableField label="Boîte" type="number" value={client.boite?.toString() ?? null}
+              onSave={v => save({ boite: toInt(v) })} />
+          </div>
+          <EditableField label="Code client" value={client.code} onSave={v => save({ code: v })} />
+        </section>
 
         <section className="drawer-section">
           <h3>Coordonnées</h3>
@@ -148,6 +216,27 @@ export default function ClientDetail({ client, onClose }: { client: ClientRow; o
               })}
             </ul>
           )}
+        </section>
+
+        <section className="drawer-section">
+          <h3>Historique <span className="muted">{mouvementsQ.data?.length ?? ''}</span></h3>
+          {mouvementsQ.isLoading ? <p className="muted small-text">Chargement…</p>
+            : mouvementsQ.error ? <p className="muted small-text">Historique indisponible. Vérifiez que la migration v6 a été appliquée.</p>
+            : (
+              <ol className="timeline">
+                {mouvementsQ.data!.map(m => (
+                  <li key={m.id} className={m.type}>
+                    <strong>{m.type === 'sortie' ? 'Sorti de l\'archive' : 'Remis en archive'}</strong>
+                    {m.motif && <span>{m.motif}</span>}
+                    <span className="muted small-text">{fmtDateTime(m.created_at)}{m.par && ` · ${m.par}`}</span>
+                  </li>
+                ))}
+                <li className="origin">
+                  <strong>Classé dans l'archive</strong>
+                  <span className="muted small-text">{fmtDate(client.date_archivage ?? client.created_at)}</span>
+                </li>
+              </ol>
+            )}
         </section>
 
         <button className="btn-danger" onClick={del}><Trash2 size={15} /> Supprimer ce client</button>
